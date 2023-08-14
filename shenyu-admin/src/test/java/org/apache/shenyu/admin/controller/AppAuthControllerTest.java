@@ -17,30 +17,39 @@
 
 package org.apache.shenyu.admin.controller;
 
+import java.util.Date;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.shenyu.admin.model.dto.AuthApplyDTO;
+import org.apache.shenyu.admin.mapper.AppAuthMapper;
+import org.apache.shenyu.admin.mapper.AuthPathMapper;
 import org.apache.shenyu.admin.model.dto.AppAuthDTO;
+import org.apache.shenyu.admin.model.dto.AuthApplyDTO;
 import org.apache.shenyu.admin.model.dto.AuthPathDTO;
 import org.apache.shenyu.admin.model.dto.AuthPathWarpDTO;
 import org.apache.shenyu.admin.model.dto.BatchCommonDTO;
-import org.apache.shenyu.admin.service.AppAuthService;
-import org.apache.shenyu.admin.model.vo.AppAuthVO;
 import org.apache.shenyu.admin.model.page.CommonPager;
+import org.apache.shenyu.admin.model.page.PageCondition;
 import org.apache.shenyu.admin.model.page.PageParameter;
 import org.apache.shenyu.admin.model.query.AppAuthQuery;
+import org.apache.shenyu.admin.model.query.RecordLogQueryCondition;
 import org.apache.shenyu.admin.model.result.ShenyuAdminResult;
-import org.apache.shenyu.admin.utils.ShenyuResultMessage;
+import org.apache.shenyu.admin.model.vo.AppAuthVO;
 import org.apache.shenyu.admin.model.vo.AuthPathVO;
+import org.apache.shenyu.admin.service.AppAuthService;
+import org.apache.shenyu.admin.spring.SpringBeanUtils;
+import org.apache.shenyu.admin.utils.ShenyuResultMessage;
 import org.apache.shenyu.common.constant.AdminConstants;
+import org.apache.shenyu.common.exception.CommonErrorCode;
 import org.apache.shenyu.common.utils.DateUtils;
 import org.apache.shenyu.common.utils.GsonUtils;
-import org.apache.shenyu.common.exception.CommonErrorCode;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
@@ -54,13 +63,16 @@ import java.util.List;
 
 import static org.hamcrest.core.Is.is;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * Test cases for AppAuthController.
  */
-@RunWith(MockitoJUnitRunner.class)
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 public final class AppAuthControllerTest {
 
     private MockMvc mockMvc;
@@ -70,15 +82,48 @@ public final class AppAuthControllerTest {
 
     @Mock
     private AppAuthService appAuthService;
+    
+    @Mock
+    private AuthPathMapper authPathMapper;
+    
+    @Mock
+    private AppAuthMapper appAuthMapper;
 
     private final AppAuthVO appAuthVO = new AppAuthVO("0001", "testAppKey", "testAppSecret",
             "testUser", "18600000000", "{\"extInfo\": \"test\"}",
             true, true, null, null,
             DateUtils.localDateTimeToString(LocalDateTime.now()));
 
-    @Before
+    @BeforeEach
     public void setUp() {
-        this.mockMvc = MockMvcBuilders.standaloneSetup(appAuthController).build();
+        this.mockMvc = MockMvcBuilders.standaloneSetup(appAuthController)
+                .setControllerAdvice(appAuthMapper)
+                .setControllerAdvice(authPathMapper)
+                .build();
+    }
+
+    @Test
+    public void testSearch() throws Exception {
+        final String queryUri = "/appAuth/list/search";
+        PageCondition pageCondition = buildPageRecordLogQueryCondition();
+        this.mockMvc.perform(MockMvcRequestBuilders.post(queryUri)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(GsonUtils.getInstance().toJson(pageCondition)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message", is(ShenyuResultMessage.QUERY_SUCCESS)))
+                .andReturn();
+    }
+
+    @Test
+    public void testSearchAdaptor() throws Exception {
+        final String queryUri = "/appAuth/list/search/adaptor";
+        PageCondition pageCondition = buildPageRecordLogQueryCondition();
+        this.mockMvc.perform(MockMvcRequestBuilders.post(queryUri)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(GsonUtils.getInstance().toJson(pageCondition)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message", is(ShenyuResultMessage.QUERY_SUCCESS)))
+                .andReturn();
     }
 
     @Test
@@ -88,7 +133,7 @@ public final class AppAuthControllerTest {
         pathList.add("/test");
         authApplyDTO.setAppName("testApp");
         authApplyDTO.setUserId("testUser");
-        authApplyDTO.setPhone("18600000000");
+        authApplyDTO.setPhone("+1234567");
         authApplyDTO.setAppParam("{\"type\": \"test\"}");
         authApplyDTO.setExtInfo("{\"extInfo\": \"test\"}");
         authApplyDTO.setOpen(true);
@@ -144,8 +189,8 @@ public final class AppAuthControllerTest {
         this.mockMvc.perform(MockMvcRequestBuilders.get("/appAuth/findPageByQuery")
                 .param("appKey", "testAppKey")
                 .param("phone", "18600000000")
-                .param("currentPage", pageParameter.getCurrentPage() + "")
-                .param("pageSize", pageParameter.getPageSize() + ""))
+                .param("currentPage", String.valueOf(pageParameter.getCurrentPage()))
+                .param("pageSize", String.valueOf(pageParameter.getPageSize())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message", is(ShenyuResultMessage.QUERY_SUCCESS)))
                 .andExpect(jsonPath("$.data.dataList[0].appKey", is(appAuthVO.getAppKey())))
@@ -167,9 +212,15 @@ public final class AppAuthControllerTest {
     public void testUpdateDetail() throws Exception {
         AppAuthDTO appAuthDTO = new AppAuthDTO();
         appAuthDTO.setId("0001");
-        appAuthDTO.setPhone("18600000001");
+        appAuthDTO.setAppKey("app key");
+        appAuthDTO.setAppSecret("app secret");
+        appAuthDTO.setPhone("1234567");
         given(this.appAuthService.updateDetail(appAuthDTO)).willReturn(
                 ShenyuAdminResult.success(ShenyuResultMessage.UPDATE_SUCCESS));
+        ConfigurableApplicationContext context = mock(ConfigurableApplicationContext.class);
+        SpringBeanUtils.getInstance().setApplicationContext(context);
+        when(SpringBeanUtils.getInstance().getBean(AppAuthMapper.class)).thenReturn(appAuthMapper);
+        when(appAuthMapper.existed(appAuthDTO.getId())).thenReturn(true);
         this.mockMvc.perform(MockMvcRequestBuilders.post("/appAuth/updateDetail")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(GsonUtils.getInstance().toJson(appAuthDTO)))
@@ -205,7 +256,10 @@ public final class AppAuthControllerTest {
         final AuthPathWarpDTO authPathWarpDTO = new AuthPathWarpDTO();
         authPathWarpDTO.setId("0001");
         authPathWarpDTO.setAuthPathDTOList(authPathDTOS);
-
+        ConfigurableApplicationContext context = mock(ConfigurableApplicationContext.class);
+        SpringBeanUtils.getInstance().setApplicationContext(context);
+        when(SpringBeanUtils.getInstance().getBean(AppAuthMapper.class)).thenReturn(appAuthMapper);
+        when(appAuthMapper.existed(authPathWarpDTO.getId())).thenReturn(true);
         given(this.appAuthService.updateDetailPath(authPathWarpDTO)).willReturn(ShenyuAdminResult.success());
         this.mockMvc.perform(MockMvcRequestBuilders.post("/appAuth/updateDetailPath")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -265,5 +319,19 @@ public final class AppAuthControllerTest {
         this.mockMvc.perform(MockMvcRequestBuilders.post("/appAuth/syncData"))
                 .andExpect(status().isOk())
                 .andReturn();
+    }
+
+    private PageCondition<RecordLogQueryCondition> buildPageRecordLogQueryCondition() {
+        PageCondition<RecordLogQueryCondition> pageCondition = new PageCondition<>();
+        pageCondition.setPageSize(10);
+        pageCondition.setPageNum(1);
+        RecordLogQueryCondition recordLogQueryCondition = new RecordLogQueryCondition();
+        recordLogQueryCondition.setUsername("admin");
+        recordLogQueryCondition.setKeyword("testerror");
+        recordLogQueryCondition.setStartTime(new Date());
+        recordLogQueryCondition.setEndTime(new Date());
+        recordLogQueryCondition.setType("");
+        pageCondition.setCondition(recordLogQueryCondition);
+        return pageCondition;
     }
 }

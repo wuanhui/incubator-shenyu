@@ -17,18 +17,41 @@
 
 package org.apache.shenyu.examples.motan.service.impl;
 
-import com.weibo.api.motan.config.springsupport.annotation.MotanService;
+import org.apache.shenyu.client.apidocs.annotations.ApiDoc;
+import org.apache.shenyu.client.apidocs.annotations.ApiModule;
 import org.apache.shenyu.client.motan.common.annotation.ShenyuMotanClient;
+import org.apache.shenyu.client.motan.common.annotation.ShenyuMotanService;
+import org.apache.shenyu.examples.common.aop.Log;
 import org.apache.shenyu.examples.motan.service.MotanDemoService;
+import org.apache.shenyu.springboot.starter.client.motan.ShenyuMotanClientConfiguration;
 
 /**
  * Motan demo service.
+ *
+ * <P>Default motan service name is "motan2", If you want to inject other services,
+ * please refer to {@link ShenyuMotanClientConfiguration}
  */
-@MotanService(export = "demoMotan:8002")
+@ShenyuMotanService(value = "/demo", export = "motan2:8002")
+@ApiModule("MotanDemoService")
 public class MotanDemoServiceImpl implements MotanDemoService {
+
     @Override
-    @ShenyuMotanClient(path = "/hello")
-    public String hello(String name) {
+    @ShenyuMotanClient(value = "/hello")
+    @Log
+    @ApiDoc(desc = "hello")
+    public String hello(final String name) {
         return "hello " + name;
+    }
+
+    @Override
+    @ShenyuMotanClient(value = "/timeout")
+    @ApiDoc(desc = "timeout")
+    public String testTimeOut(final long seconds) {
+        try {
+            Thread.sleep(seconds * 1000);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        return "hello seconds " + seconds + "s";
     }
 }

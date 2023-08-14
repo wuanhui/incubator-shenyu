@@ -1,19 +1,18 @@
 /*
- *   Licensed to the Apache Software Foundation (ASF) under one or more
- *   contributor license agreements.  See the NOTICE file distributed with
- *   this work for additional information regarding copyright ownership.
- *   The ASF licenses this file to You under the Apache License, Version 2.0
- *   (the "License"); you may not use this file except in compliance with
- *   the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- *   Unless required by applicable law or agreed to in writing, software
- *   distributed under the License is distributed on an "AS IS" BASIS,
- *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *   See the License for the specific language governing permissions and
- *   limitations under the License.
- *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package org.apache.shenyu.register.common.dto;
@@ -42,6 +41,7 @@ public class URIRegisterDTO implements DataTypeParent {
     private Integer port;
 
     private EventType eventType;
+
     
     /**
      * Instantiates a new Uri register dto.
@@ -55,8 +55,8 @@ public class URIRegisterDTO implements DataTypeParent {
      * @param eventType the event type
      */
     public URIRegisterDTO(final String protocol, final String appName, final String contextPath,
-                          final String rpcType, final String host,
-                          final Integer port, final EventType eventType) {
+                          final String rpcType, final String host, final Integer port,
+                          final EventType eventType, final Integer prefixForwardEnable) {
         this.protocol = protocol;
         this.appName = appName;
         this.contextPath = contextPath;
@@ -272,22 +272,26 @@ public class URIRegisterDTO implements DataTypeParent {
         return "URIRegisterDTO{"
                 + "protocol='"
                 + protocol
-                + "appName='"
+                + '\''
+                + ", appName='"
                 + appName
+                + '\''
                 + ", contextPath='"
                 + contextPath
+                + '\''
                 + ", rpcType='"
                 + rpcType
+                + '\''
                 + ", host='"
                 + host
+                + '\''
                 + ", port="
                 + port
                 + ", eventType="
                 + eventType
                 + '}';
-
     }
-    
+
     /**
      * The type Builder.
      */
@@ -386,7 +390,7 @@ public class URIRegisterDTO implements DataTypeParent {
             this.eventType = eventType;
             return this;
         }
-    
+
         /**
          * build.
          *

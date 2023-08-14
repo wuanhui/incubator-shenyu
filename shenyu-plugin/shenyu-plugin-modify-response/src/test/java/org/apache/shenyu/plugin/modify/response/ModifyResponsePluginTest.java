@@ -20,14 +20,15 @@ package org.apache.shenyu.plugin.modify.response;
 import org.apache.shenyu.common.constant.Constants;
 import org.apache.shenyu.common.dto.RuleData;
 import org.apache.shenyu.common.dto.SelectorData;
+import org.apache.shenyu.common.dto.convert.rule.impl.ModifyResponseRuleHandle;
 import org.apache.shenyu.common.enums.PluginEnum;
 import org.apache.shenyu.plugin.api.ShenyuPluginChain;
 import org.apache.shenyu.plugin.api.context.ShenyuContext;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.apache.shenyu.plugin.modify.response.handler.ModifyResponsePluginDataHandler;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.web.server.MockServerWebExchange;
 import org.springframework.web.server.ServerWebExchange;
@@ -35,7 +36,11 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 import java.net.InetSocketAddress;
+import java.util.HashMap;
+import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -44,7 +49,7 @@ import static org.mockito.Mockito.when;
 /**
  * The Test Case For ModifyResponse.
  */
-@RunWith(MockitoJUnitRunner.class)
+@ExtendWith(MockitoExtension.class)
 public final class ModifyResponsePluginTest {
 
     private ModifyResponsePlugin modifyResponsePlugin;
@@ -57,7 +62,7 @@ public final class ModifyResponsePluginTest {
 
     private SelectorData selectorData;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         this.modifyResponsePlugin = new ModifyResponsePlugin();
         this.ruleData = mock(RuleData.class);
@@ -77,22 +82,36 @@ public final class ModifyResponsePluginTest {
     @Test
     public void testDoExecute() {
         when(chain.execute(any())).thenReturn(Mono.empty());
-        Mono<Void> result = modifyResponsePlugin.doExecute(exchange, chain, selectorData, ruleData);
+        final RuleData ruleDataTest = RuleData.builder().id("1")
+                .name("test-modify-response-plugin")
+                .pluginName("modifyResponse")
+                .selectorId("1")
+                .matchMode(1)
+                .sort(1)
+                .loged(true)
+                .selectorId("test")
+                .build();
+        final ModifyResponseRuleHandle responseRuleHandle = new ModifyResponseRuleHandle();
+        final Map<String, String> map = new HashMap<>();
+        map.put("context-path-id", "1");
+        responseRuleHandle.setAddHeaders(map);
+        ModifyResponsePluginDataHandler.CACHED_HANDLE.get().cachedHandle("test_test-modify-response-plugin", responseRuleHandle);
+        Mono<Void> result = modifyResponsePlugin.doExecute(exchange, chain, selectorData, ruleDataTest);
         StepVerifier.create(result).expectSubscription().verifyComplete();
     }
 
     @Test
     public void testGetOrder() {
-        Assert.assertEquals(modifyResponsePlugin.getOrder(), PluginEnum.MODIFY_RESPONSE.getCode());
+        assertEquals(modifyResponsePlugin.getOrder(), PluginEnum.MODIFY_RESPONSE.getCode());
     }
 
     @Test
     public void testNamed() {
-        Assert.assertEquals(modifyResponsePlugin.named(), PluginEnum.MODIFY_RESPONSE.getName());
+        assertEquals(modifyResponsePlugin.named(), PluginEnum.MODIFY_RESPONSE.getName());
     }
 
     @Test
     public void testSkip() {
-        Assert.assertFalse(modifyResponsePlugin.skip(exchange));
+        assertFalse(modifyResponsePlugin.skip(exchange));
     }
 }

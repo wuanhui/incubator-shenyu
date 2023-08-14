@@ -17,10 +17,13 @@
 
 package org.apache.shenyu.plugin.response.strategy;
 
+import com.google.common.collect.Lists;
 import org.apache.shenyu.common.constant.Constants;
+import org.apache.shenyu.common.enums.RpcTypeEnum;
 import org.apache.shenyu.plugin.api.ShenyuPluginChain;
 import org.springframework.core.io.buffer.NettyDataBuffer;
 import org.springframework.core.io.buffer.NettyDataBufferFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.lang.Nullable;
@@ -32,13 +35,20 @@ import reactor.netty.Connection;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.function.Consumer;
 
 /**
  * The type Netty client message writer.
  */
 public class NettyClientMessageWriter implements MessageWriter {
 
-    private final List<MediaType> streamingMediaTypes = Arrays.asList(MediaType.TEXT_EVENT_STREAM, MediaType.APPLICATION_STREAM_JSON);
+    /**
+     * stream media type: from APPLICATION_STREAM_JSON upgrade to APPLICATION_STREAM_JSON_VALUE.
+     * Both of the above have expired.
+     * latest version: {@linkplain MediaType#APPLICATION_NDJSON}
+     */
+    private final List<MediaType> streamingMediaTypes = Arrays.asList(MediaType.TEXT_EVENT_STREAM, MediaType.APPLICATION_NDJSON);
 
     @Override
     public Mono<Void> writeWith(final ServerWebExchange exchange, final ShenyuPluginChain chain) {
@@ -55,12 +65,23 @@ public class NettyClientMessageWriter implements MessageWriter {
                     .retain()
                     .map(factory::wrap);
             MediaType contentType = response.getHeaders().getContentType();
-            return isStreamingMediaType(contentType)
+
+            Mono<Void> responseMono = isStreamingMediaType(contentType)
                     ? response.writeAndFlushWith(body.map(Flux::just))
                     : response.writeWith(body);
+            exchange.getAttributes().put(Constants.RESPONSE_MONO, responseMono);
+            // watcher httpStatus
+            final Consumer<HttpStatus> consumer = exchange.getAttribute(Constants.WATCHER_HTTP_STATUS);
+            Optional.ofNullable(consumer).ifPresent(c -> c.accept(response.getStatusCode()));
+            return responseMono;
         })).doOnCancel(() -> cleanup(exchange));
     }
-
+    
+    @Override
+    public List<String> supportTypes() {
+        return Lists.newArrayList(RpcTypeEnum.HTTP.getName(), RpcTypeEnum.SPRING_CLOUD.getName());
+    }
+    
     private void cleanup(final ServerWebExchange exchange) {
         Connection connection = exchange.getAttribute(Constants.CLIENT_RESPONSE_CONN_ATTR);
         if (Objects.nonNull(connection)) {

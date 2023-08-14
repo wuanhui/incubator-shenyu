@@ -22,6 +22,7 @@ import com.google.common.collect.Maps;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.shenyu.common.concurrent.ShenyuThreadFactory;
 import org.apache.shenyu.common.utils.GsonUtils;
+import org.apache.shenyu.common.utils.MapUtils;
 import org.apache.shenyu.common.utils.UpstreamCheckUtils;
 import org.apache.shenyu.loadbalancer.entity.Upstream;
 import org.slf4j.Logger;
@@ -63,25 +64,32 @@ public final class UpstreamCheckTask implements Runnable {
 
     private ExecutorService executor;
 
+    private int poolSize;
+
     private int checkTimeout = 3000;
 
     private int healthyThreshold = 1;
 
     private int unhealthyThreshold = 1;
-
+    
+    /**
+     * Instantiates a new Upstream check task.
+     *
+     * @param checkInterval the check interval
+     */
     public UpstreamCheckTask(final int checkInterval) {
         this.checkInterval = checkInterval;
     }
-
+    
     /**
      * get checkStarted.
      *
-     * @return checkStarted
+     * @return checkStarted check started
      */
     public AtomicBoolean getCheckStarted() {
         return checkStarted;
     }
-
+    
     /**
      * Schedule health check task.
      */
@@ -93,9 +101,9 @@ public final class UpstreamCheckTask implements Runnable {
 
         // executor for async request, avoid request block health check thread
         ThreadFactory requestFactory = ShenyuThreadFactory.create("upstream-health-check-request", true);
-        executor = new ScheduledThreadPoolExecutor(10, requestFactory);
+        executor = new ScheduledThreadPoolExecutor(poolSize, requestFactory);
     }
-
+    
     /**
      * Set check timeout.
      *
@@ -106,6 +114,24 @@ public final class UpstreamCheckTask implements Runnable {
     }
 
     /**
+     * get checkThreadPoolSize.
+     *
+     * @return checkThreadPoolSize
+     */
+    public int getPoolSize() {
+        return poolSize;
+    }
+
+    /**
+     * set checkThreadPoolSize.
+     *
+     * @param poolSize checkThreadPoolSize
+     */
+    public void setPoolSize(final int poolSize) {
+        this.poolSize = poolSize;
+    }
+
+    /**
      * Set healthy threshold.
      *
      * @param healthyThreshold healthy threshold
@@ -113,7 +139,7 @@ public final class UpstreamCheckTask implements Runnable {
     public void setHealthyThreshold(final int healthyThreshold) {
         this.healthyThreshold = healthyThreshold;
     }
-
+    
     /**
      * Set unhealthy threshold.
      *
@@ -130,7 +156,7 @@ public final class UpstreamCheckTask implements Runnable {
 
     private void healthCheck() {
         try {
-            /**
+            /*
              * If there is no synchronized. when check is done and all upstream check result is in the futures list.
              * In the same time, triggerRemoveAll() called before waitFinish(), there will be dirty data stay in map.
              */
@@ -222,22 +248,22 @@ public final class UpstreamCheckTask implements Runnable {
     private void finishHealthCheck() {
         checkStarted.set(false);
     }
-
+    
     /**
      * Add one upstream via selectorData.
      *
      * @param selectorId selectorId
-     * @param upstream     upstream
+     * @param upstream upstream
      */
     public void triggerAddOne(final String selectorId, final Upstream upstream) {
         putToMap(healthyUpstream, selectorId, upstream);
     }
-
+    
     /**
      * Remove a specific upstream via selectorId.
      *
      * @param selectorId selectorId
-     * @param upstream   upstream
+     * @param upstream upstream
      */
     public void triggerRemoveOne(final String selectorId, final Upstream upstream) {
         removeFromMap(healthyUpstream, selectorId, upstream);
@@ -246,7 +272,7 @@ public final class UpstreamCheckTask implements Runnable {
 
     private void putToMap(final Map<String, List<Upstream>> map, final String selectorId, final Upstream upstream) {
         synchronized (lock) {
-            List<Upstream> list = map.computeIfAbsent(selectorId, k -> Lists.newArrayList());
+            List<Upstream> list = MapUtils.computeIfAbsent(map, selectorId, k -> Lists.newArrayList());
             if (!list.contains(upstream)) {
                 list.add(upstream);
             }
@@ -261,7 +287,7 @@ public final class UpstreamCheckTask implements Runnable {
             }
         }
     }
-
+    
     /**
      * Remove all upstream via selectorId.
      *
@@ -273,11 +299,16 @@ public final class UpstreamCheckTask implements Runnable {
             unhealthyUpstream.remove(selectorId);
         }
     }
-
+    
     /**
-     * Print healthy upstream.
+     * Print healthy and unhealthy check log.
      */
-    public void printHealthyUpstream() {
+    public void print() {
+        printHealthyUpstream();
+        printUnhealthyUpstream();
+    }
+    
+    private void printHealthyUpstream() {
         healthyUpstream.forEach((k, v) -> {
             if (Objects.nonNull(v)) {
                 List<String> list = v.stream().map(Upstream::getUrl).collect(Collectors.toList());
@@ -285,11 +316,8 @@ public final class UpstreamCheckTask implements Runnable {
             }
         });
     }
-
-    /**
-     * Print unhealthy upstream.
-     */
-    public void printUnhealthyUpstream() {
+    
+    private void printUnhealthyUpstream() {
         unhealthyUpstream.forEach((k, v) -> {
             if (Objects.nonNull(v)) {
                 List<String> list = v.stream().map(Upstream::getUrl).collect(Collectors.toList());
@@ -297,7 +325,7 @@ public final class UpstreamCheckTask implements Runnable {
             }
         });
     }
-
+    
     /**
      * Get healthy upstream map.
      *
@@ -306,7 +334,7 @@ public final class UpstreamCheckTask implements Runnable {
     public Map<String, List<Upstream>> getHealthyUpstream() {
         return healthyUpstream;
     }
-
+    
     /**
      * Get unhealthy upstream map.
      *

@@ -18,7 +18,9 @@
 package org.apache.shenyu.common.utils;
 
 import org.apache.shenyu.common.constant.Constants;
-import org.junit.Test;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
+import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -26,9 +28,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
  * Test cases for JsonUtils.
@@ -73,10 +75,18 @@ public final class JsonUtilsTest {
                     }
                 })
                 .build();
-        assertEquals(EXPECTED_JSON, JsonUtils.toJson(object));
+        JsonElement expectedJson = JsonParser.parseString(EXPECTED_JSON);
+        JsonElement objectJson = JsonParser.parseString(JsonUtils.toJson(object));
+        assertEquals(expectedJson, objectJson);
 
         Object o = new Object();
         assertEquals(Constants.EMPTY_JSON, JsonUtils.toJson(o));
+    }
+
+    @Test
+    public void testJsonToMap() {
+        Map<String, Object> stringObjectMap = JsonUtils.jsonToMap(EXPECTED_JSON);
+        assertEquals(stringObjectMap.get("name"), "test object");
     }
 
     @Test
@@ -96,6 +106,27 @@ public final class JsonUtilsTest {
         JsonUtils.removeClass(testMap);
         assertNotNull(testMap.getOrDefault("result", null));
         assertEquals(testMap.get("result").get("not_class"), "ClassNotFoundException.class");
+    }
+
+    @Test
+    public void testJsonToObject() {
+        TestObject testObject = JsonUtils.jsonToObject(EXPECTED_JSON, TestObject.class);
+        assertNotNull(testObject);
+        assertEquals(testObject.getName(), "test object");
+    }
+
+    @Test
+    public void testJsonToMapByValueTypeRef() {
+        Map<String, Object> stringObjectMap = JsonUtils.jsonToMap(EXPECTED_JSON, Object.class);
+        assertEquals(stringObjectMap.get("name"), "test object");
+    }
+
+    @Test
+    public void testToMap() {
+        TestObject testObject = JsonUtils.jsonToObject(EXPECTED_JSON, TestObject.class);
+        Map<String, Object> testObjectMap = JsonUtils.toMap(testObject);
+        assertNotNull(testObjectMap);
+        assertEquals(testObjectMap.get("name"), "test object");
     }
 
     static class TestObject {

@@ -17,18 +17,18 @@
 
 package org.apache.shenyu.springboot.starter.plugin.springcloud;
 
-import com.netflix.loadbalancer.IRule;
-import org.apache.shenyu.common.constant.Constants;
+import org.apache.shenyu.common.config.ShenyuConfig;
 import org.apache.shenyu.plugin.api.ShenyuPlugin;
 import org.apache.shenyu.plugin.api.context.ShenyuContextDecorator;
 import org.apache.shenyu.plugin.base.handler.PluginDataHandler;
 import org.apache.shenyu.plugin.springcloud.SpringCloudPlugin;
 import org.apache.shenyu.plugin.springcloud.context.SpringCloudShenyuContextDecorator;
 import org.apache.shenyu.plugin.springcloud.handler.SpringCloudPluginDataHandler;
-import org.apache.shenyu.plugin.springcloud.loadbalance.LoadBalanceRule;
+import org.apache.shenyu.plugin.springcloud.listener.SpringCloudHeartBeatListener;
+import org.apache.shenyu.plugin.springcloud.loadbalance.ShenyuSpringCloudServiceChooser;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.cloud.client.loadbalancer.LoadBalancerClient;
-import org.springframework.cloud.netflix.ribbon.RibbonClientSpecification;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.cloud.client.discovery.DiscoveryClient;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -36,21 +36,33 @@ import org.springframework.context.annotation.Configuration;
  * The type Spring cloud plugin configuration.
  */
 @Configuration
+@ConditionalOnProperty(value = {"shenyu.plugins.spring-cloud.enabled"}, havingValue = "true", matchIfMissing = true)
 public class SpringCloudPluginConfiguration {
+
+    /**
+     * shenyu springcloud loadbalancer.
+     *
+     * @param discoveryClient discoveryClient
+     * @return {@linkplain ShenyuSpringCloudServiceChooser}
+     */
+    @Bean
+    public ShenyuSpringCloudServiceChooser shenyuSpringCloudLoadBalancerClient(final ObjectProvider<DiscoveryClient> discoveryClient) {
+        return new ShenyuSpringCloudServiceChooser(discoveryClient.getIfAvailable());
+    }
 
     /**
      * init springCloud plugin.
      *
-     * @param loadBalancerClient the load balancer client
+     * @param serviceChooser service chooser
      * @return {@linkplain SpringCloudPlugin}
      */
     @Bean
-    public ShenyuPlugin springCloudPlugin(final ObjectProvider<LoadBalancerClient> loadBalancerClient) {
-        return new SpringCloudPlugin(loadBalancerClient.getIfAvailable());
+    public ShenyuPlugin springCloudPlugin(final ObjectProvider<ShenyuSpringCloudServiceChooser> serviceChooser) {
+        return new SpringCloudPlugin(serviceChooser.getIfAvailable());
     }
 
     /**
-     * Spring cloud shenyu context decorator shenyu context decorator.
+     * Spring cloud shenyu context decorator.
      *
      * @return the shenyu context decorator
      */
@@ -62,29 +74,28 @@ public class SpringCloudPluginConfiguration {
     /**
      * Spring cloud plugin data handler.
      *
+     * @param discoveryClient the discovery client
+     * @param shenyuConfig the shenyu config
+     *
      * @return the plugin data handler
      */
     @Bean
-    public PluginDataHandler springCloudPluginDataHandler() {
-        return new SpringCloudPluginDataHandler();
+    public PluginDataHandler springCloudPluginDataHandler(final ObjectProvider<DiscoveryClient> discoveryClient,
+                                                          final ShenyuConfig shenyuConfig) {
+        return new SpringCloudPluginDataHandler(discoveryClient.getIfAvailable(), shenyuConfig.getSpringCloudCache());
     }
-
+    
     /**
-     * Custom ribbon IRule.
+     * Spring cloud heart beat listener.
      *
-     * @return ribbonClientSpecification ribbonClientSpecification
+     * @param discoveryClient the discoveryClient
+     * @param shenyuConfig the shenyu config
+     * @return the spring cloud heartbeat listener {@linkplain SpringCloudHeartBeatListener}
      */
     @Bean
-    public RibbonClientSpecification ribbonClientSpecification() {
-        Class<?>[] classes = new Class[]{SpringCloudClientConfiguration.class};
-        return new RibbonClientSpecification(String.join(".", Constants.DEFAULT.toLowerCase(), RibbonClientSpecification.class.getName()), classes);
-    }
-
-    static class SpringCloudClientConfiguration {
-        @Bean
-        public IRule ribbonRule() {
-            return new LoadBalanceRule();
-        }
+    public SpringCloudHeartBeatListener springCloudHeartBeatListener(final ObjectProvider<DiscoveryClient> discoveryClient,
+                                                                     final ShenyuConfig shenyuConfig) {
+        return new SpringCloudHeartBeatListener(discoveryClient.getIfAvailable(), shenyuConfig.getSpringCloudCache());
     }
 
 }

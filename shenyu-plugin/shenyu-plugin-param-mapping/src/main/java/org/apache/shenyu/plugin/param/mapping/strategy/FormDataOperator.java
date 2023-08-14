@@ -17,6 +17,7 @@
 
 package org.apache.shenyu.plugin.param.mapping.strategy;
 
+import com.google.gson.reflect.TypeToken;
 import com.jayway.jsonpath.DocumentContext;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.shenyu.common.dto.convert.rule.impl.ParamMappingRuleHandle;
@@ -68,14 +69,14 @@ public class FormDataOperator implements Operator {
                     String original = GsonUtils.getInstance().toJson(multiValueMap);
                     LOG.info("get from data success data:{}", original);
                     String modify = operation(original, paramMappingRuleHandle);
-                    if (StringUtils.isEmpty(modify)) {
+                    if (!StringUtils.hasLength(modify)) {
                         return shenyuPluginChain.execute(exchange);
                     }
                     HttpHeaders headers = exchange.getRequest().getHeaders();
                     HttpHeaders httpHeaders = new HttpHeaders();
                     Charset charset = Objects.requireNonNull(headers.getContentType()).getCharset();
                     charset = charset == null ? StandardCharsets.UTF_8 : charset;
-                    LinkedMultiValueMap<String, String> modifyMap = GsonUtils.getInstance().toLinkedMultiValueMap(modify);
+                    LinkedMultiValueMap<String, String> modifyMap = toLinkedMultiValueMap(modify);
                     List<String> list = prepareParams(modifyMap, charset.name());
                     String content = String.join("&", list);
                     byte[] bodyBytes = content.getBytes(charset);
@@ -111,7 +112,18 @@ public class FormDataOperator implements Operator {
         }));
         return paramList;
     }
-
+    
+    /**
+     * To linked multiValue map.
+     *
+     * @param json the json
+     * @return the linked multiValue map
+     */
+    public LinkedMultiValueMap<String, String> toLinkedMultiValueMap(final String json) {
+        return GsonUtils.getGson().fromJson(json, new TypeToken<LinkedMultiValueMap<String, String>>() {
+        }.getType());
+    }
+    
     static class ModifyServerHttpRequestDecorator extends ServerHttpRequestDecorator {
 
         private final HttpHeaders headers;

@@ -32,6 +32,19 @@ public final class ShenyuPluginPathBuilder {
     
     private static final String DEFAULT_EXT_PLUGIN_PATH = "/ext-lib/";
 
+    private ShenyuPluginPathBuilder() {
+    }
+
+    /**
+     * Gets plugin file.
+     *
+     * @param path the path
+     * @return the plugin jar file.
+     */
+    public static File getPluginFile(final String path) {
+        String pluginPath = getPluginPath(path);
+        return new File(pluginPath);
+    }
     
     /**
      * Gets plugin path.
@@ -39,20 +52,15 @@ public final class ShenyuPluginPathBuilder {
      * @param path the path
      * @return the plugin path
      */
-    public static File getPluginPath(final String path) {
+    public static String getPluginPath(final String path) {
         if (StringUtils.isNotEmpty(path)) {
-            return new File(path);
+            return path;
         }
         String pluginPath = System.getProperty(PLUGIN_PATH);
         if (StringUtils.isNotEmpty(pluginPath)) {
-            return new File(pluginPath);
+            return pluginPath;
         }
-        return buildPluginJarPath();
+        URL resource = ShenyuPluginPathBuilder.class.getResource(DEFAULT_EXT_PLUGIN_PATH);
+        return Optional.ofNullable(resource).map(URL::getPath).orElse(DEFAULT_EXT_PLUGIN_PATH);
     }
-    
-    private static File buildPluginJarPath() {
-        URL url = ShenyuPluginPathBuilder.class.getResource(DEFAULT_EXT_PLUGIN_PATH);
-        return Optional.ofNullable(url).map(u -> new File(u.getFile())).orElse(new File(DEFAULT_EXT_PLUGIN_PATH));
-    }
-
 }

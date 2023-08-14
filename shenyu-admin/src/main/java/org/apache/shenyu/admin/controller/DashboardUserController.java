@@ -18,18 +18,39 @@
 package org.apache.shenyu.admin.controller;
 
 import org.apache.commons.collections4.CollectionUtils;
-import org.apache.shenyu.admin.config.properties.SecretProperties;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.shenyu.admin.exception.ValidFailException;
+import org.apache.shenyu.admin.mapper.DashboardUserMapper;
+import org.apache.shenyu.admin.model.custom.UserInfo;
 import org.apache.shenyu.admin.model.dto.DashboardUserDTO;
+import org.apache.shenyu.admin.model.dto.DashboardUserModifyPasswordDTO;
 import org.apache.shenyu.admin.model.page.CommonPager;
 import org.apache.shenyu.admin.model.page.PageParameter;
 import org.apache.shenyu.admin.model.query.DashboardUserQuery;
+import org.apache.shenyu.admin.model.result.AdminResult;
 import org.apache.shenyu.admin.model.result.ShenyuAdminResult;
 import org.apache.shenyu.admin.model.vo.DashboardUserEditVO;
 import org.apache.shenyu.admin.model.vo.DashboardUserVO;
 import org.apache.shenyu.admin.service.DashboardUserService;
-import org.apache.shenyu.admin.utils.AesUtils;
+import org.apache.shenyu.admin.utils.Assert;
+import org.apache.shenyu.admin.utils.ResultUtil;
+import org.apache.shenyu.admin.utils.SessionUtil;
 import org.apache.shenyu.admin.utils.ShenyuResultMessage;
+import org.apache.shenyu.admin.validation.annotation.Existed;
+import org.apache.shenyu.common.utils.DigestUtils;
+import org.apache.shiro.SecurityUtils;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
+import javax.validation.Valid;
+import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.NotEmpty;
+import javax.validation.constraints.NotNull;
+
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -38,13 +59,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import javax.validation.Valid;
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.NotEmpty;
-import java.util.List;
-import java.util.Optional;
 
 /**
  * this is dashboard user controller.
@@ -53,16 +69,13 @@ import java.util.Optional;
 @RestController
 @RequestMapping("/dashboardUser")
 public class DashboardUserController {
-
-    private final SecretProperties secretProperties;
-
+    
     private final DashboardUserService dashboardUserService;
-
-    public DashboardUserController(final SecretProperties secretProperties, final DashboardUserService dashboardUserService) {
-        this.secretProperties = secretProperties;
+    
+    public DashboardUserController(final DashboardUserService dashboardUserService) {
         this.dashboardUserService = dashboardUserService;
     }
-
+    
     /**
      * query dashboard users.
      *
@@ -71,54 +84,54 @@ public class DashboardUserController {
      * @param pageSize    page size
      * @return {@linkplain ShenyuAdminResult}
      */
-    @RequiresPermissions("system:manager:list")
     @GetMapping("")
+    @RequiresPermissions("system:manager:list")
     public ShenyuAdminResult queryDashboardUsers(final String userName,
-                                                 final Integer currentPage,
-                                                 final Integer pageSize) {
+                                                 @RequestParam @NotNull(message = "currentPage not null") final Integer currentPage,
+                                                 @RequestParam @NotNull(message = "pageSize not null") final Integer pageSize) {
         CommonPager<DashboardUserVO> commonPager = dashboardUserService.listByPage(new DashboardUserQuery(userName,
                 new PageParameter(currentPage, pageSize)));
-
+        
         if (CollectionUtils.isNotEmpty(commonPager.getDataList())) {
             return ShenyuAdminResult.success(ShenyuResultMessage.QUERY_SUCCESS, commonPager);
         } else {
             return ShenyuAdminResult.error(ShenyuResultMessage.DASHBOARD_QUERY_ERROR);
         }
     }
-
+    
     /**
      * detail dashboard user.
      *
      * @param id dashboard user id.
      * @return {@linkplain ShenyuAdminResult}
      */
-    @RequiresPermissions("system:manager:list")
     @GetMapping("/{id}")
+    @RequiresPermissions("system:manager:list")
     public ShenyuAdminResult detailDashboardUser(@PathVariable("id") final String id) {
         DashboardUserEditVO dashboardUserEditVO = dashboardUserService.findById(id);
         return Optional.ofNullable(dashboardUserEditVO)
                 .map(item -> ShenyuAdminResult.success(ShenyuResultMessage.DETAIL_SUCCESS, item))
                 .orElseGet(() -> ShenyuAdminResult.error(ShenyuResultMessage.DASHBOARD_QUERY_ERROR));
     }
-
+    
     /**
      * create dashboard user.
      *
      * @param dashboardUserDTO dashboard user.
      * @return {@linkplain ShenyuAdminResult}
      */
-    @RequiresPermissions("system:manager:add")
     @PostMapping("")
+    @RequiresPermissions("system:manager:add")
     public ShenyuAdminResult createDashboardUser(@Valid @RequestBody final DashboardUserDTO dashboardUserDTO) {
-        String key = secretProperties.getKey();
-        String iv = secretProperties.getIv();
-        return Optional.ofNullable(dashboardUserDTO).map(item -> {
-            item.setPassword(AesUtils.aesEncryption(item.getPassword(), key, iv));
-            Integer createCount = dashboardUserService.createOrUpdate(item);
-            return ShenyuAdminResult.success(ShenyuResultMessage.CREATE_SUCCESS, createCount);
-        }).orElseGet(() -> ShenyuAdminResult.error(ShenyuResultMessage.DASHBOARD_CREATE_USER_ERROR));
+        return Optional.ofNullable(dashboardUserDTO)
+                .map(item -> {
+                    item.setPassword(DigestUtils.sha512Hex(item.getPassword()));
+                    Integer createCount = dashboardUserService.createOrUpdate(item);
+                    return ShenyuAdminResult.success(ShenyuResultMessage.CREATE_SUCCESS, createCount);
+                })
+                .orElseGet(() -> ShenyuAdminResult.error(ShenyuResultMessage.DASHBOARD_CREATE_USER_ERROR));
     }
-
+    
     /**
      * update dashboard user.
      *
@@ -126,27 +139,70 @@ public class DashboardUserController {
      * @param dashboardUserDTO dashboard user.
      * @return {@linkplain ShenyuAdminResult}
      */
-    @RequiresPermissions("system:manager:edit")
     @PutMapping("/{id}")
-    public ShenyuAdminResult updateDashboardUser(@PathVariable("id") final String id, @Valid @RequestBody final DashboardUserDTO dashboardUserDTO) {
-        String key = secretProperties.getKey();
-        String iv = secretProperties.getIv();
+    @RequiresPermissions("system:manager:edit")
+    public ShenyuAdminResult updateDashboardUser(@PathVariable("id")
+                                                 @Existed(provider = DashboardUserMapper.class,
+                                                         message = "user is not found") final String id,
+                                                 @Valid @RequestBody final DashboardUserDTO dashboardUserDTO) {
         dashboardUserDTO.setId(id);
-        dashboardUserDTO.setPassword(AesUtils.aesEncryption(dashboardUserDTO.getPassword(), key, iv));
+        if (StringUtils.isNotBlank(dashboardUserDTO.getPassword())) {
+            dashboardUserDTO.setPassword(DigestUtils.sha512Hex(dashboardUserDTO.getPassword()));
+        }
         Integer updateCount = dashboardUserService.createOrUpdate(dashboardUserDTO);
         return ShenyuAdminResult.success(ShenyuResultMessage.UPDATE_SUCCESS, updateCount);
     }
-
+    
+    /**
+     * modify dashboard user password.
+     *
+     * @param id                             primary key.
+     * @param dashboardUserModifyPasswordDTO dashboard user.
+     * @return {@linkplain ShenyuAdminResult}
+     */
+    @PutMapping("/modify-password/{id}")
+    public ShenyuAdminResult modifyPassword(@PathVariable("id")
+                                            @Existed(provider = DashboardUserMapper.class,
+                                                    message = "user is not found") final String id,
+                                            @Valid @RequestBody final DashboardUserModifyPasswordDTO dashboardUserModifyPasswordDTO) {
+        UserInfo userInfo = (UserInfo) SecurityUtils.getSubject().getPrincipal();
+        if (Objects.isNull(userInfo)) {
+            return ShenyuAdminResult.error(ShenyuResultMessage.DASHBOARD_USER_LOGIN_ERROR);
+        }
+        dashboardUserModifyPasswordDTO.setId(id);
+        if (!userInfo.getUserId().equals(id) && !userInfo.getUserName().equals(dashboardUserModifyPasswordDTO.getUserName())) {
+            return ShenyuAdminResult.error(ShenyuResultMessage.DASHBOARD_MODIFY_PASSWORD_ERROR);
+        }
+        dashboardUserModifyPasswordDTO.setPassword(DigestUtils.sha512Hex(dashboardUserModifyPasswordDTO.getPassword()));
+        dashboardUserModifyPasswordDTO.setOldPassword(DigestUtils.sha512Hex(dashboardUserModifyPasswordDTO.getOldPassword()));
+        return ShenyuAdminResult.success(ShenyuResultMessage.UPDATE_SUCCESS, dashboardUserService.modifyPassword(dashboardUserModifyPasswordDTO));
+    }
+    
+    /**
+     * check current user password.
+     *
+     * @return success
+     */
+    @GetMapping("check/password")
+    public AdminResult<Boolean> checkUserPassword() {
+        try {
+            return ResultUtil.ok(dashboardUserService.checkUserPassword(SessionUtil.visitor().getUserId()));            
+        } catch (ValidFailException exception) {
+            return ResultUtil.error(exception.getMessage());
+        }
+    }
+    
     /**
      * delete dashboard users.
      *
      * @param ids primary key.
      * @return {@linkplain ShenyuAdminResult}
      */
-    @RequiresPermissions("system:manager:delete")
     @DeleteMapping("/batch")
+    @RequiresPermissions("system:manager:delete")
     public ShenyuAdminResult deleteDashboardUser(@RequestBody @NotEmpty final List<@NotBlank String> ids) {
-        Integer deleteCount = dashboardUserService.delete(ids);
-        return ShenyuAdminResult.success(ShenyuResultMessage.DELETE_SUCCESS, deleteCount);
+        // [mandatory] This function can only be used by the admin user
+        Assert.isTrue(SessionUtil.isAdmin(), "This function can only be used by the admin(root) user");
+        return ShenyuAdminResult.success(ShenyuResultMessage.DELETE_SUCCESS, dashboardUserService.delete(new HashSet<>(ids)));
     }
 }

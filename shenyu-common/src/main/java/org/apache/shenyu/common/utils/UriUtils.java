@@ -20,14 +20,15 @@ package org.apache.shenyu.common.utils;
 import org.apache.commons.lang3.StringUtils;
 
 import java.net.URI;
+import java.util.Objects;
 
 /**
  * uri util.
  */
 public class UriUtils {
-    
+
     private static final String PRE_FIX = "/";
-    
+
     /**
      * create URI {@link URI}.
      *
@@ -40,7 +41,7 @@ public class UriUtils {
         }
         return null;
     }
-    
+
     /**
      * Repair data string.
      *
@@ -50,7 +51,7 @@ public class UriUtils {
     public static String repairData(final String name) {
         return name.startsWith(PRE_FIX) ? name : PRE_FIX + name;
     }
-    
+
     /**
      * Remove prefix string.
      *
@@ -59,5 +60,55 @@ public class UriUtils {
      */
     public static String removePrefix(final String name) {
         return name.startsWith(PRE_FIX) ? name.substring(1) : name;
+    }
+
+    /**
+     * Get the path of uri with parameters.
+     *
+     * @param uri the uri.
+     * @return absolute uri string with parameters.
+     */
+    public static String getPathWithParams(final URI uri) {
+        if (Objects.isNull(uri)) {
+            return StringUtils.EMPTY;
+        }
+        String params = StringUtils.isEmpty(uri.getQuery()) ? "" : "?" + uri.getQuery();
+        return uri.getPath() + params;
+    }
+
+    /**
+     * appendScheme.
+     *
+     * @param scheme scheme
+     * @param url    url
+     * @return {@link String}
+     */
+    public static String appendScheme(final String url, final String scheme) {
+        String schemeUrl = url;
+        if (!schemeUrl.startsWith("http://") && !schemeUrl.startsWith("https://")) {
+            schemeUrl = scheme + "://" + schemeUrl;
+        }
+        return schemeUrl;
+    }
+
+    /**
+     * get actual port.
+     *
+     * @param scheme scheme eg:http
+     * @param port   port
+     * @return {@link int}
+     */
+    public static int getActualPort(final String scheme, final Integer port) {
+        Integer actualPort = port;
+        if (Objects.isNull(port) || port.intValue() < 0) {
+            if (!"http".equals(scheme) && !"ws".equals(scheme)) {
+                if ("https".equals(scheme) || "wss".equals(scheme)) {
+                    actualPort = 443;
+                }
+            } else {
+                actualPort = 80;
+            }
+        }
+        return actualPort;
     }
 }

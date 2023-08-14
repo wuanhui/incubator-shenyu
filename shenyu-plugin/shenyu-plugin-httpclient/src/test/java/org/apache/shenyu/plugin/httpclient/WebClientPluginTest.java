@@ -24,14 +24,17 @@ import org.apache.shenyu.plugin.api.ShenyuPluginChain;
 import org.apache.shenyu.plugin.api.context.ShenyuContext;
 import org.apache.shenyu.plugin.api.result.ShenyuResult;
 import org.apache.shenyu.plugin.api.utils.SpringBeanUtils;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.web.server.MockServerWebExchange;
@@ -45,9 +48,9 @@ import reactor.test.StepVerifier;
 
 import java.net.URI;
 
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -55,7 +58,8 @@ import static org.mockito.Mockito.when;
 /**
  * The test case for WebClientPlugin.
  */
-@RunWith(MockitoJUnitRunner.class)
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 public final class WebClientPluginTest {
 
     @Mock
@@ -66,7 +70,7 @@ public final class WebClientPluginTest {
 
     private WebClientPlugin webClientPlugin;
 
-    @Before
+    @BeforeEach
     public void setup() {
         ConfigurableApplicationContext context = mock(ConfigurableApplicationContext.class);
         SpringBeanUtils.getInstance().setApplicationContext(context);
@@ -156,8 +160,14 @@ public final class WebClientPluginTest {
     }
 
     private WebClient mockWebClientOK() {
+        final ClientResponse.Headers headers = mock(ClientResponse.Headers.class);
+        when(headers.asHttpHeaders()).thenReturn(new HttpHeaders());
+        
         final ClientResponse mockResponse = mock(ClientResponse.class);
         when(mockResponse.statusCode()).thenReturn(HttpStatus.OK);
+        when(mockResponse.headers()).thenReturn(headers);
+        when(mockResponse.bodyToMono(byte[].class)).thenReturn(Mono.just("{\"test\":\"ok\"}".getBytes()));
+        when(mockResponse.releaseBody()).thenReturn(Mono.empty());
         given(this.exchangeFunction.exchange(this.captor.capture())).willReturn(Mono.just(mockResponse));
         return WebClient.builder().baseUrl("/test")
                 .exchangeFunction(this.exchangeFunction)
@@ -167,8 +177,14 @@ public final class WebClientPluginTest {
     }
 
     private WebClient mockWebClientError() {
+        final ClientResponse.Headers headers = mock(ClientResponse.Headers.class);
+        when(headers.asHttpHeaders()).thenReturn(new HttpHeaders());
+        
         final ClientResponse mockResponse = mock(ClientResponse.class);
         when(mockResponse.statusCode()).thenReturn(HttpStatus.INTERNAL_SERVER_ERROR);
+        when(mockResponse.headers()).thenReturn(headers);
+        when(mockResponse.bodyToMono(byte[].class)).thenReturn(Mono.just(new byte[0]));
+        when(mockResponse.releaseBody()).thenReturn(Mono.empty());
         given(this.exchangeFunction.exchange(this.captor.capture())).willReturn(Mono.just(mockResponse));
         return WebClient.builder().baseUrl("/test")
                 .exchangeFunction(this.exchangeFunction)

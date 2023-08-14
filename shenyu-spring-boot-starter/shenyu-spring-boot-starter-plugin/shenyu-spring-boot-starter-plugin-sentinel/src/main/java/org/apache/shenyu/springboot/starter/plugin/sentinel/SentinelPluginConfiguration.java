@@ -18,6 +18,7 @@
 package org.apache.shenyu.springboot.starter.plugin.sentinel;
 
 import com.alibaba.csp.sentinel.adapter.spring.webflux.exception.SentinelBlockExceptionHandler;
+import org.apache.shenyu.plugin.api.ShenyuPlugin;
 import org.apache.shenyu.plugin.base.fallback.FallbackHandler;
 import org.apache.shenyu.plugin.base.handler.PluginDataHandler;
 import org.apache.shenyu.plugin.sentinel.SentinelPlugin;
@@ -25,6 +26,7 @@ import org.apache.shenyu.plugin.sentinel.fallback.SentinelFallbackHandler;
 import org.apache.shenyu.plugin.sentinel.handler.SentinelRuleHandle;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
@@ -39,6 +41,7 @@ import java.util.List;
  * Sentinel plugin configuration.
  */
 @Configuration
+@ConditionalOnProperty(value = {"shenyu.plugins.sentinel.enabled"}, havingValue = "true", matchIfMissing = true)
 public class SentinelPluginConfiguration {
 
     /**
@@ -69,7 +72,7 @@ public class SentinelPluginConfiguration {
      * @return the shenyu plugin
      */
     @Bean
-    public SentinelPlugin sentinelPlugin(final FallbackHandler fallbackHandler) {
+    public ShenyuPlugin sentinelPlugin(final FallbackHandler fallbackHandler) {
         return new SentinelPlugin(fallbackHandler);
     }
 
@@ -85,7 +88,7 @@ public class SentinelPluginConfiguration {
     }
 
     /**
-     * Sentinel plugin data handler plugin data handler.
+     * Sentinel plugin data handler.
      *
      * @return the plugin data handler
      */

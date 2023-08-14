@@ -17,44 +17,42 @@
 
 package org.apache.shenyu.springboot.starter.client.springmvc;
 
-import org.apache.shenyu.client.springmvc.init.ContextRegisterListener;
-import org.apache.shenyu.client.springmvc.init.SpringMvcClientBeanPostProcessor;
+import org.apache.shenyu.client.auto.config.ClientRegisterConfiguration;
+import org.apache.shenyu.client.springmvc.init.SpringMvcClientEventListener;
 import org.apache.shenyu.common.enums.RpcTypeEnum;
+import org.apache.shenyu.common.utils.VersionUtils;
 import org.apache.shenyu.register.client.api.ShenyuClientRegisterRepository;
 import org.apache.shenyu.register.common.config.ShenyuClientConfig;
 import org.apache.shenyu.springboot.starter.client.common.config.ShenyuClientCommonBeanConfiguration;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * The type shenyu client http configuration.
+ * The type shenyu spring mvc client configuration.
  */
 @Configuration
 @ImportAutoConfiguration(ShenyuClientCommonBeanConfiguration.class)
+@ConditionalOnProperty(value = "shenyu.register.enabled", matchIfMissing = true, havingValue = "true")
 public class ShenyuSpringMvcClientConfiguration {
-    
+
+    static {
+        VersionUtils.checkDuplicate(ShenyuSpringMvcClientConfiguration.class);
+    }
+
     /**
-     * Spring http client bean post processor spring mvc client bean post processor.
+     * Spring mvc client bean post processor.
      *
-     * @param clientConfig the client config
+     * @param clientConfig                   the client config
      * @param shenyuClientRegisterRepository the shenyu client register repository
      * @return the spring mvc client bean post processor
      */
     @Bean
-    public SpringMvcClientBeanPostProcessor springHttpClientBeanPostProcessor(final ShenyuClientConfig clientConfig,
-                                                                              final ShenyuClientRegisterRepository shenyuClientRegisterRepository) {
-        return new SpringMvcClientBeanPostProcessor(clientConfig.getClient().get(RpcTypeEnum.HTTP.getName()), shenyuClientRegisterRepository);
-    }
-    
-    /**
-     * Context register listener context register listener.
-     *
-     * @param clientConfig the client config
-     * @return the context register listener
-     */
-    @Bean
-    public ContextRegisterListener contextRegisterListener(final ShenyuClientConfig clientConfig) {
-        return new ContextRegisterListener(clientConfig.getClient().get(RpcTypeEnum.HTTP.getName()));
+    @ConditionalOnMissingBean(ClientRegisterConfiguration.class)
+    public SpringMvcClientEventListener springHttpClientEventListener(final ShenyuClientConfig clientConfig,
+                                                                          final ShenyuClientRegisterRepository shenyuClientRegisterRepository) {
+        return new SpringMvcClientEventListener(clientConfig.getClient().get(RpcTypeEnum.HTTP.getName()), shenyuClientRegisterRepository);
     }
 }

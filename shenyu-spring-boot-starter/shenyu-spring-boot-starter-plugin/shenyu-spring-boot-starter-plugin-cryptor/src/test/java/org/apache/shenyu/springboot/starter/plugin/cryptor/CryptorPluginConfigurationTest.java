@@ -19,14 +19,15 @@ package org.apache.shenyu.springboot.starter.plugin.cryptor;
 
 import org.apache.shenyu.plugin.api.ShenyuPlugin;
 import org.apache.shenyu.plugin.base.handler.PluginDataHandler;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.codec.support.DefaultServerCodecConfigurer;
 
-import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
  * Test case for {@link CryptorPluginConfiguration}.
@@ -37,10 +38,10 @@ public class CryptorPluginConfigurationTest {
 
     private ApplicationContextRunner applicationContextRunner;
 
-    @Before
+    @BeforeEach
     public void before() {
         applicationContextRunner = new ApplicationContextRunner()
-            .withConfiguration(AutoConfigurations.of(CryptorPluginConfiguration.class))
+            .withConfiguration(AutoConfigurations.of(CryptorPluginConfiguration.class, DefaultServerCodecConfigurer.class))
             .withBean(CryptorPluginConfigurationTest.class)
             .withPropertyValues(
                 "debug=true",

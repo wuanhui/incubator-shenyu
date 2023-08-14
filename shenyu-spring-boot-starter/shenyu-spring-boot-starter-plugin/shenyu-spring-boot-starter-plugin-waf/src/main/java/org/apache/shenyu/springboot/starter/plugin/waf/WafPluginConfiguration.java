@@ -21,6 +21,7 @@ import org.apache.shenyu.plugin.api.ShenyuPlugin;
 import org.apache.shenyu.plugin.base.handler.PluginDataHandler;
 import org.apache.shenyu.plugin.waf.WafPlugin;
 import org.apache.shenyu.plugin.waf.handler.WafPluginDataHandler;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -28,10 +29,11 @@ import org.springframework.context.annotation.Configuration;
  * The type Waf plugin configuration.
  */
 @Configuration
+@ConditionalOnProperty(value = {"shenyu.plugins.waf.enabled"}, havingValue = "true", matchIfMissing = true)
 public class WafPluginConfiguration {
     
     /**
-     * Waf plugin shenyu plugin.
+     * Waf plugin.
      *
      * @return the shenyu plugin
      */
@@ -41,7 +43,7 @@ public class WafPluginConfiguration {
     }
     
     /**
-     * Waf plugin data handler plugin data handler.
+     * Waf plugin data handler.
      *
      * @return the plugin data handler
      */

@@ -17,8 +17,11 @@
 
 package org.apache.shenyu.admin.config;
 
+import com.ecwid.consul.v1.ConsulClient;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.shenyu.common.exception.ShenyuException;
 import org.apache.shenyu.register.common.config.ShenyuRegisterCenterConfig;
-import org.apache.shenyu.register.server.consul.ShenyuConsulConfigWatch;
+import org.apache.shenyu.register.client.server.consul.ShenyuConsulConfigWatch;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
@@ -27,9 +30,27 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @ConditionalOnProperty(prefix = "shenyu.register", name = "registerType", havingValue = "consul")
 public class ConsulServerConfiguration {
-    
     /**
-     * Register shenyuConsulConfigWatch for ConsulServerRegisterRepository to monitor metadata.
+     * Register consul client, distinguished from sync consul client.
+
+     * @param config the shenyu register center config
+     * @return the consulClient
+     */
+    @Bean(name = "registerConsulClient")
+    public ConsulClient consulClient(final ShenyuRegisterCenterConfig config) {
+        final String serverList = config.getServerLists();
+        if (StringUtils.isBlank(serverList)) {
+            throw new ShenyuException("serverList can not be null.");
+        }
+        final String[] addresses = serverList.split(":");
+        if (addresses.length != 2) {
+            throw new ShenyuException("serverList formatter is not incorrect.");
+        }
+        return new ConsulClient(addresses[0], Integer.parseInt(addresses[1]));
+    }
+
+    /**
+     * Register shenyuConsulConfigWatch for ConsulClientServerRegisterRepository to monitor metadata.
      *
      * @param config the shenyu register center config
      * @param publisher the application event publisher

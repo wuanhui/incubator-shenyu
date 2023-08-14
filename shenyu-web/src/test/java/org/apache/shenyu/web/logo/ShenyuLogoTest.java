@@ -17,7 +17,7 @@
 
 package org.apache.shenyu.web.logo;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.context.event.ApplicationEnvironmentPreparedEvent;
 import org.springframework.core.env.ConfigurableEnvironment;
@@ -28,7 +28,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * The TestCase for ShenyuLogo.
@@ -49,7 +49,8 @@ public final class ShenyuLogoTest {
     public void testOnApplicationEvent() throws NoSuchFieldException, IllegalAccessException {
         SpringApplication application = new SpringApplication();
         ConfigurableEnvironment environment = new MockEnvironment();
-        ApplicationEnvironmentPreparedEvent event = new ApplicationEnvironmentPreparedEvent(application, null, environment);
+        ApplicationEnvironmentPreparedEvent event = new ApplicationEnvironmentPreparedEvent(null, application, null, environment);
+        shenyuLogo.onApplicationEvent(event);
         shenyuLogo.onApplicationEvent(event);
         Field field = shenyuLogo.getClass().getDeclaredField("ALREADY_LOG");
         field.setAccessible(true);

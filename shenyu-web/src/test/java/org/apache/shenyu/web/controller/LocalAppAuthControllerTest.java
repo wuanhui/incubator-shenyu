@@ -22,10 +22,10 @@ import org.apache.shenyu.common.dto.AuthParamData;
 import org.apache.shenyu.common.dto.AuthPathData;
 import org.apache.shenyu.common.utils.GsonUtils;
 import org.apache.shenyu.sync.data.api.AuthDataSubscriber;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -44,22 +44,26 @@ import static org.mockito.Mockito.verify;
 /**
  * Test cases for LocalAppAuthController.
  */
-@RunWith(MockitoJUnitRunner.class)
+@ExtendWith(MockitoExtension.class)
 public final class LocalAppAuthControllerTest {
 
     private MockMvc mockMvc;
+
+    private MockMvc mockMvcSubscribersNull;
     
     private AppAuthData appAuthData;
     
     private List<AuthDataSubscriber> subscribers;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         subscribers = new LinkedList<>();
         subscribers.add(mock(AuthDataSubscriber.class));
         subscribers.add(mock(AuthDataSubscriber.class));
         LocalAppAuthController appAuthController = new LocalAppAuthController(new TestObjectProvider<>(subscribers));
         this.mockMvc = MockMvcBuilders.standaloneSetup(appAuthController).build();
+        LocalAppAuthController appAuthControllerSubNull = new LocalAppAuthController(new TestObjectProvider<>(null));
+        this.mockMvcSubscribersNull = MockMvcBuilders.standaloneSetup(appAuthControllerSubNull).build();
         appAuthData = initAppAuthDataList();
     }
 
@@ -71,6 +75,12 @@ public final class LocalAppAuthControllerTest {
                 .andReturn().getResponse();
         assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
         subscribers.forEach(subscriber -> verify(subscriber).onSubscribe(appAuthData));
+
+        final MockHttpServletResponse responseError = this.mockMvcSubscribersNull.perform(MockMvcRequestBuilders.post("/shenyu/auth/saveOrUpdate")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(GsonUtils.getInstance().toJson(appAuthData)))
+                .andReturn().getResponse();
+        assertThat(responseError.getStatus()).isEqualTo(HttpStatus.OK.value());
     }
 
     @Test
@@ -84,6 +94,11 @@ public final class LocalAppAuthControllerTest {
         AppAuthData appAuthData = new AppAuthData();
         appAuthData.setAppKey(appKey);
         subscribers.forEach(subscriber -> verify(subscriber).unSubscribe(appAuthData));
+        final MockHttpServletResponse responseError = this.mockMvcSubscribersNull.perform(MockMvcRequestBuilders.get("/shenyu/auth/delete")
+                .contentType(MediaType.APPLICATION_JSON)
+                .queryParam("appKey", appKey))
+                .andReturn().getResponse();
+        assertThat(responseError.getStatus()).isEqualTo(HttpStatus.OK.value());
     }
 
     private AppAuthData initAppAuthDataList() {

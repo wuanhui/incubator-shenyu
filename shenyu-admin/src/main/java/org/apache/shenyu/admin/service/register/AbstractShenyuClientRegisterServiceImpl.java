@@ -27,8 +27,10 @@ import org.apache.shenyu.admin.service.MetaDataService;
 import org.apache.shenyu.admin.service.RuleService;
 import org.apache.shenyu.admin.service.SelectorService;
 import org.apache.shenyu.admin.service.impl.UpstreamCheckService;
+import org.apache.shenyu.admin.service.manager.RegisterApiDocService;
 import org.apache.shenyu.admin.utils.CommonUpstreamUtils;
 import org.apache.shenyu.admin.utils.ShenyuResultMessage;
+import org.apache.shenyu.common.constant.AdminConstants;
 import org.apache.shenyu.common.dto.SelectorData;
 import org.apache.shenyu.common.dto.convert.selector.CommonUpstream;
 import org.apache.shenyu.common.enums.ConfigGroupEnum;
@@ -36,7 +38,10 @@ import org.apache.shenyu.common.enums.DataEventTypeEnum;
 import org.apache.shenyu.common.enums.MatchModeEnum;
 import org.apache.shenyu.common.enums.OperatorEnum;
 import org.apache.shenyu.common.enums.ParamTypeEnum;
+import org.apache.shenyu.common.exception.ShenyuException;
+import org.apache.shenyu.common.utils.PathUtils;
 import org.apache.shenyu.common.utils.PluginNameAdapter;
+import org.apache.shenyu.register.common.dto.ApiDocRegisterDTO;
 import org.apache.shenyu.register.common.dto.MetaDataRegisterDTO;
 import org.apache.shenyu.register.common.dto.URIRegisterDTO;
 import org.springframework.context.ApplicationEventPublisher;
@@ -45,36 +50,40 @@ import javax.annotation.Resource;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * Abstract strategy.
  */
 public abstract class AbstractShenyuClientRegisterServiceImpl extends FallbackShenyuClientRegisterService implements ShenyuClientRegisterService {
-    
+
     /**
      * The Event publisher.
      */
     @Resource
     private ApplicationEventPublisher eventPublisher;
-    
+
     /**
      * The Selector service.
      */
     @Resource
     private SelectorService selectorService;
-    
+
     @Resource
     private MetaDataService metaDataService;
-    
+
     /**
      * The Rule service.
      */
     @Resource
     private RuleService ruleService;
-    
+
     @Resource
     private UpstreamCheckService upstreamCheckService;
-    
+
+    @Resource
+    private RegisterApiDocService registerApiDocService;
+
     /**
      * Selector handler string.
      *
@@ -82,21 +91,21 @@ public abstract class AbstractShenyuClientRegisterServiceImpl extends FallbackSh
      * @return the string
      */
     protected abstract String selectorHandler(MetaDataRegisterDTO metaDataDTO);
-    
+
     /**
      * Rule handler string.
      *
      * @return the string
      */
     protected abstract String ruleHandler();
-    
+
     /**
      * Register metadata.
      *
      * @param metaDataDTO the meta data dto
      */
     protected abstract void registerMetadata(MetaDataRegisterDTO metaDataDTO);
-    
+
     /**
      * Build handle string.
      *
@@ -105,7 +114,7 @@ public abstract class AbstractShenyuClientRegisterServiceImpl extends FallbackSh
      * @return the string
      */
     protected abstract String buildHandle(List<URIRegisterDTO> uriList, SelectorDO selectorDO);
-    
+
     /**
      * Register meta data.
      *
@@ -130,7 +139,13 @@ public abstract class AbstractShenyuClientRegisterServiceImpl extends FallbackSh
         }
         return ShenyuResultMessage.SUCCESS;
     }
-    
+
+    @Override
+    public String registerApiDoc(final ApiDocRegisterDTO apiDocRegisterDTO) {
+        registerApiDocService.registerApiDocument(apiDocRegisterDTO);
+        return ShenyuResultMessage.SUCCESS;
+    }
+
     /**
      * Register uri string.
      *
@@ -145,23 +160,25 @@ public abstract class AbstractShenyuClientRegisterServiceImpl extends FallbackSh
         }
         SelectorDO selectorDO = selectorService.findByNameAndPluginName(selectorName, PluginNameAdapter.rpcTypeAdapter(rpcType()));
         if (Objects.isNull(selectorDO)) {
-            this.recover(selectorName, uriList);
-            return "";
+            throw new ShenyuException("doRegister Failed to execute,wait to retry.");
         }
         // fetch UPSTREAM_MAP data from db
         //upstreamCheckService.fetchUpstreamData();
         //update upstream
-        String handler = buildHandle(uriList, selectorDO);
-        selectorDO.setHandle(handler);
-        SelectorData selectorData = selectorService.buildByName(selectorName, PluginNameAdapter.rpcTypeAdapter(rpcType()));
-        selectorData.setHandle(handler);
-        // update db
-        selectorService.updateSelective(selectorDO);
-        // publish change event.
-        eventPublisher.publishEvent(new DataChangedEvent(ConfigGroupEnum.SELECTOR, DataEventTypeEnum.UPDATE, Collections.singletonList(selectorData)));
+        List<URIRegisterDTO> validUriList = uriList.stream().filter(dto -> Objects.nonNull(dto.getPort()) && StringUtils.isNotBlank(dto.getHost())).collect(Collectors.toList());
+        String handler = buildHandle(validUriList, selectorDO);
+        if (handler != null) {
+            selectorDO.setHandle(handler);
+            SelectorData selectorData = selectorService.buildByName(selectorName, PluginNameAdapter.rpcTypeAdapter(rpcType()));
+            selectorData.setHandle(handler);
+            // update db
+            selectorService.updateSelective(selectorDO);
+            // publish change event.
+            eventPublisher.publishEvent(new DataChangedEvent(ConfigGroupEnum.SELECTOR, DataEventTypeEnum.UPDATE, Collections.singletonList(selectorData)));
+        }
         return ShenyuResultMessage.SUCCESS;
     }
-    
+
     /**
      * Gets meta data service.
      *
@@ -170,7 +187,7 @@ public abstract class AbstractShenyuClientRegisterServiceImpl extends FallbackSh
     public MetaDataService getMetaDataService() {
         return metaDataService;
     }
-    
+
     /**
      * Gets selector service.
      *
@@ -179,7 +196,7 @@ public abstract class AbstractShenyuClientRegisterServiceImpl extends FallbackSh
     public SelectorService getSelectorService() {
         return selectorService;
     }
-    
+
     /**
      * Gets rule service.
      *
@@ -188,18 +205,32 @@ public abstract class AbstractShenyuClientRegisterServiceImpl extends FallbackSh
     public RuleService getRuleService() {
         return ruleService;
     }
-    
+
+    /**
+     * Gets event publisher.
+     *
+     * @return the event publisher
+     */
+    public ApplicationEventPublisher getEventPublisher() {
+        return eventPublisher;
+    }
+
     /**
      * Do submit.
      *
      * @param selectorId   the selector id
      * @param upstreamList the upstream list
+     * @return whether this module handles
      */
-    protected void doSubmit(final String selectorId, final List<? extends CommonUpstream> upstreamList) {
+    protected boolean doSubmit(final String selectorId, final List<? extends CommonUpstream> upstreamList) {
         List<CommonUpstream> commonUpstreamList = CommonUpstreamUtils.convertCommonUpstreamList(upstreamList);
-        commonUpstreamList.forEach(upstream -> upstreamCheckService.submit(selectorId, upstream));
+        if (CollectionUtils.isEmpty(upstreamList)) {
+            return true;
+        }
+        return commonUpstreamList.stream().map(upstream -> upstreamCheckService.checkAndSubmit(selectorId, upstream))
+                .collect(Collectors.toList()).stream().findAny().orElse(false);
     }
-    
+
     /**
      * Build context path default rule dto rule dto.
      *
@@ -210,13 +241,13 @@ public abstract class AbstractShenyuClientRegisterServiceImpl extends FallbackSh
      */
     protected RuleDTO buildContextPathDefaultRuleDTO(final String selectorId, final MetaDataRegisterDTO metaDataDTO, final String ruleHandler) {
         String contextPath = metaDataDTO.getContextPath();
-        return buildRuleDTO(selectorId, ruleHandler, contextPath, contextPath + "/**");
+        return buildRuleDTO(selectorId, ruleHandler, contextPath, PathUtils.decoratorPath(contextPath));
     }
-    
+
     private RuleDTO buildRpcDefaultRuleDTO(final String selectorId, final MetaDataRegisterDTO metaDataDTO, final String ruleHandler) {
         return buildRuleDTO(selectorId, ruleHandler, metaDataDTO.getRuleName(), metaDataDTO.getPath());
     }
-    
+
     private RuleDTO buildRuleDTO(final String selectorId, final String ruleHandler, final String ruleName, final String path) {
         RuleDTO ruleDTO = RuleDTO.builder()
                 .selectorId(selectorId)
@@ -224,20 +255,41 @@ public abstract class AbstractShenyuClientRegisterServiceImpl extends FallbackSh
                 .matchMode(MatchModeEnum.AND.getCode())
                 .enabled(Boolean.TRUE)
                 .loged(Boolean.TRUE)
+                .matchRestful(Boolean.FALSE)
                 .sort(1)
                 .handle(ruleHandler)
                 .build();
+
+        String conditionPath = this.rewritePath(path);
         RuleConditionDTO ruleConditionDTO = RuleConditionDTO.builder()
                 .paramType(ParamTypeEnum.URI.getName())
                 .paramName("/")
-                .paramValue(path)
+                .paramValue(conditionPath)
                 .build();
-        if (path.indexOf("*") > 1) {
+        if (conditionPath.endsWith(AdminConstants.URI_SLASH_SUFFIX)) {
+            ruleConditionDTO.setOperator(OperatorEnum.STARTS_WITH.getAlias());
+        } else if (conditionPath.endsWith(AdminConstants.URI_SUFFIX)) {
+            ruleConditionDTO.setOperator(OperatorEnum.PATH_PATTERN.getAlias());
+        } else if (conditionPath.indexOf("*") > 1) {
             ruleConditionDTO.setOperator(OperatorEnum.MATCH.getAlias());
         } else {
             ruleConditionDTO.setOperator(OperatorEnum.EQ.getAlias());
         }
         ruleDTO.setRuleConditions(Collections.singletonList(ruleConditionDTO));
         return ruleDTO;
+    }
+
+    /**
+     * adjustment such as '/aa/${xxx}/cc' replace to `/aa/`**`/cc` for client simpler annotation.
+     * link: https://github.com/apache/shenyu/pull/3819
+     *
+     * @param path the path
+     * @return the replaced path
+     */
+    private String rewritePath(final String path) {
+        if (path.contains(AdminConstants.URI_VARIABLE_SUFFIX)) {
+            return path.replaceAll("(/\\{.*?})+", "/**");
+        }
+        return path;
     }
 }

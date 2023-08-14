@@ -55,7 +55,17 @@ public enum OperatorEnum {
      * Contains operator enum.
      */
     CONTAINS("contains", true),
-    
+
+    /**
+     * Starts with operator enum.
+     */
+    STARTS_WITH("startsWith", true),
+
+    /**
+     * Ends with operator enum.
+     */
+    ENDS_WITH("endsWith", true),
+
     /**
      * Time before operator enum.
      */
@@ -69,7 +79,12 @@ public enum OperatorEnum {
     /**
      * Time after operator enum.
      */
-    TIME_AFTER("TimeAfter", true);
+    TIME_AFTER("TimeAfter", true),
+    
+    /**
+     * Path patter operator enum.
+     */
+    PATH_PATTERN("pathPattern", true);
 
     private final String alias;
 
@@ -77,7 +92,8 @@ public enum OperatorEnum {
 
     /**
      * all args constructor.
-     * @param alias alias
+     *
+     * @param alias   alias
      * @param support support
      */
     OperatorEnum(final String alias, final Boolean support) {
@@ -88,7 +104,7 @@ public enum OperatorEnum {
     /**
      * get alias.
      *
-     * @return alias
+     * @return alias alias
      */
     public String getAlias() {
         return alias;
@@ -97,7 +113,7 @@ public enum OperatorEnum {
     /**
      * get support.
      *
-     * @return support
+     * @return support support
      */
     public Boolean getSupport() {
         return support;

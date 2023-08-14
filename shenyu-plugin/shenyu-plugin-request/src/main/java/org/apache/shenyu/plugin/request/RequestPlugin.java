@@ -37,7 +37,6 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.util.UriComponentsBuilder;
-
 import reactor.core.publisher.Mono;
 
 import java.util.Collection;
@@ -68,6 +67,7 @@ public class RequestPlugin extends AbstractShenyuPlugin {
                                 .getURI())
                                 .replaceQueryParams(getQueryParams(request, requestHandle))
                                 .build()
+                                .encode()
                                 .toUri()
                         ).headers(httpHeaders -> setHeaders(httpHeaders, request, requestHandle))
                 ).build();
@@ -83,7 +83,12 @@ public class RequestPlugin extends AbstractShenyuPlugin {
     public String named() {
         return PluginEnum.REQUEST.getName();
     }
-
+    
+    @Override
+    public boolean skip(final ServerWebExchange exchange) {
+        return skipExceptHttpLike(exchange);
+    }
+    
     /**
      * getHeaders.
      *
@@ -93,8 +98,8 @@ public class RequestPlugin extends AbstractShenyuPlugin {
     private void setHeaders(final HttpHeaders headers, final ServerHttpRequest request, final RequestHandle requestHandle) {
         List<HttpCookie> cookies = getCookies(request, requestHandle).values().stream()
                 .flatMap(Collection::stream).collect(Collectors.toList());
+        headers.remove(HttpHeaders.COOKIE);
         if (CollectionUtils.isNotEmpty(cookies)) {
-            headers.remove(HttpHeaders.COOKIE);
             headers.set(HttpHeaders.COOKIE, StringUtils.join(cookies, "; "));
         }
 
@@ -187,8 +192,9 @@ public class RequestPlugin extends AbstractShenyuPlugin {
     private void replaceCookieKey(final Map.Entry<String, String> shenyuCookie, final MultiValueMap<String, HttpCookie> cookies) {
         List<HttpCookie> httpCookies = cookies.get(shenyuCookie.getKey());
         if (Objects.nonNull(httpCookies)) {
-            cookies.addAll(shenyuCookie.getValue(), httpCookies);
             cookies.remove(shenyuCookie.getKey());
+            List<HttpCookie> newKeyCookieList = httpCookies.stream().filter(Objects::nonNull).map(cookie -> new HttpCookie(shenyuCookie.getValue(), cookie.getValue())).collect(Collectors.toList());
+            cookies.addAll(shenyuCookie.getValue(), newKeyCookieList);
         }
     }
 

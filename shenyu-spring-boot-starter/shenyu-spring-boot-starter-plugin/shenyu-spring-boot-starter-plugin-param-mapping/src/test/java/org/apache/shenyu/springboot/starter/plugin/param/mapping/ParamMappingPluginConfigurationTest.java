@@ -21,14 +21,15 @@ import org.apache.shenyu.common.enums.PluginEnum;
 import org.apache.shenyu.plugin.api.ShenyuPlugin;
 import org.apache.shenyu.plugin.base.handler.PluginDataHandler;
 import org.apache.shenyu.plugin.param.mapping.ParamMappingPlugin;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.codec.support.DefaultServerCodecConfigurer;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
  * Test case for {@link ParamMappingPluginConfiguration}.
@@ -40,7 +41,7 @@ public class ParamMappingPluginConfigurationTest {
     @Test
     public void testParamMappingPlugin() {
         new ApplicationContextRunner()
-            .withConfiguration(AutoConfigurations.of(ParamMappingPluginConfiguration.class))
+            .withConfiguration(AutoConfigurations.of(ParamMappingPluginConfiguration.class, DefaultServerCodecConfigurer.class))
             .withBean(ParamMappingPluginConfigurationTest.class)
             .withPropertyValues("debug=true")
             .run(context -> {
@@ -54,7 +55,7 @@ public class ParamMappingPluginConfigurationTest {
     @Test
     public void testParamMappingPluginDataHandler() {
         new ApplicationContextRunner()
-            .withConfiguration(AutoConfigurations.of(ParamMappingPluginConfiguration.class))
+            .withConfiguration(AutoConfigurations.of(ParamMappingPluginConfiguration.class, DefaultServerCodecConfigurer.class))
             .withBean(ParamMappingPluginConfigurationTest.class)
             .withPropertyValues("debug=true")
             .run(context -> {

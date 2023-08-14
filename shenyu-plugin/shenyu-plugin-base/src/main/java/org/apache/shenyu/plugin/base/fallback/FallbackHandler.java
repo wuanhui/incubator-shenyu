@@ -17,8 +17,12 @@
 
 package org.apache.shenyu.plugin.base.fallback;
 
+import org.apache.shenyu.common.utils.UriUtils;
 import org.apache.shenyu.plugin.api.utils.SpringBeanUtils;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
+import org.springframework.http.server.reactive.ServerHttpResponse;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.reactive.DispatcherHandler;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
@@ -30,6 +34,8 @@ import java.util.Objects;
  * Fallback handler.
  */
 public interface FallbackHandler {
+    
+    String PREFIX = "fallback:";
 
     /**
      * do without fallback uri.
@@ -38,7 +44,7 @@ public interface FallbackHandler {
      * @param throwable the throwable
      * @return mono
      */
-    Mono<Void> generateError(ServerWebExchange exchange, Throwable throwable);
+    Mono<Void> withoutFallback(ServerWebExchange exchange, Throwable throwable);
 
     /**
      * do fallback.
@@ -49,12 +55,34 @@ public interface FallbackHandler {
      * @return Mono
      */
     default Mono<Void> fallback(ServerWebExchange exchange, URI uri, Throwable t) {
-        if (Objects.isNull(uri)) {
-            return generateError(exchange, t);
+        // client HttpStatusCodeException, return the client response directly
+        if (t instanceof HttpStatusCodeException || Objects.isNull(uri)) {
+            return withoutFallback(exchange, t);
+        } 
+        if (uri.toString().startsWith(PREFIX)) {
+            String fallbackUri = uri.toString().substring(PREFIX.length());
+            DispatcherHandler dispatcherHandler =
+                    SpringBeanUtils.getInstance().getBean(DispatcherHandler.class);
+            ServerHttpRequest request = exchange.getRequest().mutate().uri(URI.create(fallbackUri)).build();
+            ServerWebExchange mutated = exchange.mutate().request(request).build();
+            return dispatcherHandler.handle(mutated);
         }
-        DispatcherHandler dispatcherHandler = SpringBeanUtils.getInstance().getBean(DispatcherHandler.class);
-        ServerHttpRequest request = exchange.getRequest().mutate().uri(Objects.requireNonNull(uri)).build();
-        ServerWebExchange mutated = exchange.mutate().request(request).build();
-        return dispatcherHandler.handle(mutated);
+        ServerHttpResponse response = exchange.getResponse();
+        ServerHttpRequest request = exchange.getRequest();
+        // avoid redirect loop, return error.
+        boolean isSameUri;
+        if (!Objects.isNull(uri.getScheme())) {
+            isSameUri = request.getURI().toString().equals(uri.toString());
+        } else {
+            String uriStr = UriUtils.repairData(uri.toString());
+            isSameUri = uriStr.equals(UriUtils.getPathWithParams(request.getURI()));
+        }
+        if (isSameUri) {
+            return withoutFallback(exchange, t);
+        }
+        // redirect to fallback uri.
+        response.setStatusCode(HttpStatus.FOUND);
+        response.getHeaders().setLocation(uri);
+        return Mono.empty();
     }
 }

@@ -19,15 +19,20 @@ package org.apache.shenyu.register.client.consul;
 
 import com.ecwid.consul.v1.ConsulClient;
 import com.ecwid.consul.v1.agent.model.NewService;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Objects;
 import java.util.Properties;
+
+import com.ecwid.consul.v1.kv.model.GetValue;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.shenyu.common.constant.Constants;
+
 import static org.apache.shenyu.common.constant.Constants.PATH_SEPARATOR;
 import static org.apache.shenyu.common.constant.DefaultPathConstants.SELECTOR_JOIN_RULE;
+
 import org.apache.shenyu.common.enums.RpcTypeEnum;
 import org.apache.shenyu.common.exception.ShenyuException;
 import org.apache.shenyu.common.utils.ContextPathUtils;
@@ -52,6 +57,8 @@ public class ConsulClientRegisterRepository implements ShenyuClientRegisterRepos
     private ConsulClient consulClient;
 
     private NewService service;
+
+    private String customMetadataPath;
 
     public ConsulClientRegisterRepository() { }
 
@@ -89,6 +96,8 @@ public class ConsulClientRegisterRepository implements ShenyuClientRegisterRepos
         if (StringUtils.isNotBlank(port)) {
             service.setPort(Integer.parseInt(port));
         }
+
+        customMetadataPath = properties.getProperty("metadata-path");
     }
 
     private String[] splitAndCheckAddress(final String serverList) {
@@ -129,12 +138,10 @@ public class ConsulClientRegisterRepository implements ShenyuClientRegisterRepos
 
     @Override
     public void persistInterface(final MetaDataRegisterDTO metadata) {
-        String rpcType = metadata.getRpcType();
-        String contextPath = ContextPathUtils.buildRealNode(metadata.getContextPath(), metadata.getAppName());
-        registerMetadata(rpcType, contextPath, metadata);
-        LogUtils.info(LOGGER, "{} Consul client register success: {}", rpcType, metadata);
+        registerMetadata(metadata);
+        LogUtils.info(LOGGER, "{} Consul client register success: {}", metadata.getRpcType(), metadata);
     }
-    
+
     /**
      * Persist uri.
      *
@@ -143,23 +150,42 @@ public class ConsulClientRegisterRepository implements ShenyuClientRegisterRepos
     @Override
     public void persistURI(final URIRegisterDTO registerDTO) {
         registerURI(registerDTO);
+        LogUtils.info(LOGGER, "{} Consul client register success: {}", registerDTO.getRpcType(), registerDTO);
     }
-    
-    private void registerMetadata(final String rpcType,
-                                  final String contextPath,
-                                  final MetaDataRegisterDTO metadata) {
+
+    @Override
+    public void closeRepository() {
+        consulClient.agentServiceDeregister(this.service.getId());
+    }
+
+    private void registerMetadata(final MetaDataRegisterDTO metadata) {
+        String rpcType = metadata.getRpcType();
+        String contextPath = ContextPathUtils.buildRealNode(metadata.getContextPath(), metadata.getAppName());
         String metadataNodeName = buildMetadataNodeName(metadata);
         String metaDataPath = RegisterPathConstants.buildMetaDataParentPath(rpcType, contextPath);
+        if (StringUtils.isNotBlank(customMetadataPath)) {
+            metaDataPath = metaDataPath.replace(RegisterPathConstants.ROOT_PATH, customMetadataPath);
+        }
         String realNode = RegisterPathConstants.buildRealNode(metaDataPath, metadataNodeName);
+
+        GetValue oldValue = consulClient.getKVValue(realNode).getValue();
+        // no change in metadata, no need to update
+        if (oldValue != null) {
+            MetaDataRegisterDTO oldMetaData = GsonUtils.getInstance().fromJson(oldValue.getDecodedValue(), MetaDataRegisterDTO.class);
+            if (Objects.equals(oldMetaData, metadata)) {
+                return;
+            }
+        }
+        // update metadata
         String metadataJson = GsonUtils.getInstance().toJson(metadata);
         consulClient.setKVValue(realNode, metadataJson);
     }
-    
+
     private void registerURI(final URIRegisterDTO metadata) {
         this.service.getMeta().put(Constants.URI, GsonUtils.getInstance().toJson(metadata));
         consulClient.agentServiceRegister(this.service);
     }
-    
+
     private String buildMetadataNodeName(final MetaDataRegisterDTO metadata) {
         String nodeName;
         String rpcType = metadata.getRpcType();
@@ -167,7 +193,7 @@ public class ConsulClientRegisterRepository implements ShenyuClientRegisterRepos
                 || Objects.equals(RpcTypeEnum.SPRING_CLOUD.getName(), rpcType)) {
             nodeName = String.join(SELECTOR_JOIN_RULE,
                     metadata.getContextPath(),
-                    metadata.getRuleName().replace(PATH_SEPARATOR, SELECTOR_JOIN_RULE));
+                    metadata.getRuleName().replace(PATH_SEPARATOR, SELECTOR_JOIN_RULE)).replace("{", "%7B").replace("}", "%7D");
         } else {
             nodeName = RegisterPathConstants.buildNodeName(metadata.getServiceName(), metadata.getMethodName());
         }

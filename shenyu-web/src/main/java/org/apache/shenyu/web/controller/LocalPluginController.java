@@ -17,19 +17,26 @@
 
 package org.apache.shenyu.web.controller;
 
+import com.google.common.collect.Lists;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.RandomUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.shenyu.common.config.ShenyuConfig;
 import org.apache.shenyu.common.constant.Constants;
 import org.apache.shenyu.common.dto.ConditionData;
 import org.apache.shenyu.common.dto.PluginData;
 import org.apache.shenyu.common.dto.RuleData;
 import org.apache.shenyu.common.dto.SelectorData;
 import org.apache.shenyu.common.enums.MatchModeEnum;
+import org.apache.shenyu.common.enums.ParamTypeEnum;
 import org.apache.shenyu.common.enums.SelectorTypeEnum;
+import org.apache.shenyu.common.enums.TrieCacheTypeEnum;
 import org.apache.shenyu.common.utils.JsonUtils;
 import org.apache.shenyu.common.utils.UUIDUtils;
+import org.apache.shenyu.plugin.api.utils.SpringBeanUtils;
 import org.apache.shenyu.plugin.base.cache.BaseDataCache;
+import org.apache.shenyu.plugin.base.cache.MatchDataCache;
+import org.apache.shenyu.plugin.base.trie.ShenyuTrie;
 import org.apache.shenyu.sync.data.api.PluginDataSubscriber;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,8 +49,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -52,11 +61,11 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping(value = "/shenyu", produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
 public class LocalPluginController {
-    
+
     private static final Logger LOG = LoggerFactory.getLogger(LocalPluginController.class);
-    
+
     private final PluginDataSubscriber subscriber;
-    
+
     /**
      * Instantiates a new Plugin controller.
      *
@@ -65,7 +74,7 @@ public class LocalPluginController {
     public LocalPluginController(final PluginDataSubscriber subscriber) {
         this.subscriber = subscriber;
     }
-    
+
     /**
      * Clean all mono.
      *
@@ -79,7 +88,7 @@ public class LocalPluginController {
         subscriber.refreshRuleDataAll();
         return Mono.just(Constants.SUCCESS);
     }
-    
+
     /**
      * Clean plugin mono.
      *
@@ -90,15 +99,56 @@ public class LocalPluginController {
     public Mono<String> cleanPlugin(@RequestParam("name") final String name) {
         LOG.info("clean apache shenyu local plugin for {}", name);
         BaseDataCache.getInstance().removePluginDataByPluginName(name);
-        List<SelectorData> selectorData = BaseDataCache.getInstance().obtainSelectorData(name);
-        List<String> selectorIds = selectorData.stream().map(SelectorData::getId).collect(Collectors.toList());
+        List<SelectorData> selectorData = Optional.ofNullable(BaseDataCache.getInstance().obtainSelectorData(name)).orElse(Collections.emptyList());
+        final List<SelectorData> newSelectorData = CollectionUtils.isNotEmpty(selectorData) ? Lists.newArrayList(selectorData) : Collections.emptyList();
+        final List<String> selectorIds = newSelectorData.stream().map(SelectorData::getId).collect(Collectors.toList());
         BaseDataCache.getInstance().removeSelectDataByPluginName(name);
+        // remove selector and rule l1 cache
+        MatchDataCache.getInstance().removeSelectorData(name);
+        MatchDataCache.getInstance().removeRuleData(name);
+        ShenyuTrie selectorTrie = SpringBeanUtils.getInstance().getBean(TrieCacheTypeEnum.SELECTOR.getTrieType());
+        ShenyuTrie ruleTrie = SpringBeanUtils.getInstance().getBean(TrieCacheTypeEnum.RULE.getTrieType());
+        ShenyuConfig shenyuConfig = SpringBeanUtils.getInstance().getBean(ShenyuConfig.class);
+        // remove selector trie cache
+        if (Boolean.TRUE.equals(shenyuConfig.getSelectorMatchCache().getTrie().getEnabled())) {
+            newSelectorData.forEach(selector -> {
+                List<ConditionData> conditionDataList = selector.getConditionList();
+                if (CollectionUtils.isNotEmpty(conditionDataList)) {
+                    List<ConditionData> filterConditions = conditionDataList.stream()
+                            .filter(conditionData -> ParamTypeEnum.URI.getName().equals(conditionData.getParamType()))
+                            .collect(Collectors.toList());
+                    if (CollectionUtils.isNotEmpty(filterConditions)) {
+                        List<String> uriPaths = filterConditions.stream().map(ConditionData::getParamValue).collect(Collectors.toList());
+                        selectorTrie.remove(uriPaths, selector, TrieCacheTypeEnum.SELECTOR);
+                    }
+                }
+            });
+        }
+        // remove rule trie cache
         for (String selectorId : selectorIds) {
+            List<RuleData> ruleDataList = BaseDataCache.getInstance().obtainRuleData(selectorId);
+            List<RuleData> newRuleDataList = CollectionUtils.isNotEmpty(ruleDataList) ? Lists.newArrayList(ruleDataList) : Collections.emptyList();
             BaseDataCache.getInstance().removeRuleDataBySelectorId(selectorId);
+            if (Boolean.TRUE.equals(shenyuConfig.getRuleMatchCache().getTrie().getEnabled())) {
+                if (CollectionUtils.isNotEmpty(newRuleDataList)) {
+                    newRuleDataList.forEach(rule -> {
+                        List<ConditionData> conditionDataList = rule.getConditionDataList();
+                        if (CollectionUtils.isNotEmpty(conditionDataList)) {
+                            List<ConditionData> filterConditions = conditionDataList.stream()
+                                    .filter(conditionData -> ParamTypeEnum.URI.getName().equals(conditionData.getParamType()))
+                                    .collect(Collectors.toList());
+                            if (CollectionUtils.isNotEmpty(filterConditions)) {
+                                List<String> uriPaths = filterConditions.stream().map(ConditionData::getParamValue).collect(Collectors.toList());
+                                ruleTrie.remove(uriPaths, rule, TrieCacheTypeEnum.RULE);
+                            }
+                        }
+                    });
+                }
+            }
         }
         return Mono.just(Constants.SUCCESS);
     }
-    
+
     /**
      * Add plugin string.
      *
@@ -186,6 +236,7 @@ public class LocalPluginController {
         subscriber.onSelectorSubscribe(result);
         RuleData ruleData = RuleData.builder()
                 .selectorId(result.getId())
+                .matchRestful(Boolean.FALSE)
                 .pluginName(selectorRuleData.getPluginName())
                 .handle(selectorRuleData.getRuleHandler())
                 .conditionDataList(selectorRuleData.getConditionDataList())
@@ -282,12 +333,14 @@ public class LocalPluginController {
      *
      * @param selectorId the selector id
      * @param id the id
+     * @param pluginName the pluginName
      * @return the mono
      */
     @GetMapping("/plugin/rule/delete")
     public Mono<String> deleteRule(@RequestParam("selectorId") final String selectorId,
-                                       @RequestParam("id") final String id) {
-        RuleData ruleData = RuleData.builder().selectorId(selectorId).id(id).build();
+                                   @RequestParam("id") final String id,
+                                   @RequestParam("pluginName") final String pluginName) {
+        RuleData ruleData = RuleData.builder().selectorId(selectorId).id(id).pluginName(pluginName).build();
         subscriber.unRuleSubscribe(ruleData);
         return Mono.just(Constants.SUCCESS);
     }
@@ -301,7 +354,7 @@ public class LocalPluginController {
      */
     @GetMapping("/plugin/rule/findList")
     public Mono<String> findListRule(@RequestParam("selectorId") final String selectorId,
-                                         @RequestParam(value = "id", required = false) final String id) {
+                                     @RequestParam(value = "id", required = false) final String id) {
         List<RuleData> ruleDataList = BaseDataCache.getInstance().obtainRuleData(selectorId);
         if (CollectionUtils.isEmpty(ruleDataList)) {
             return Mono.just("Error: can not find rule data by selector id :" + selectorId);
@@ -312,7 +365,7 @@ public class LocalPluginController {
         }
         return Mono.just(JsonUtils.toJson(ruleDataList));
     }
-    
+
     private SelectorData buildDefaultSelectorData(final SelectorData selectorData) {
         if (StringUtils.isEmpty(selectorData.getId())) {
             selectorData.setId(UUIDUtils.getInstance().generateShortUuid());
@@ -335,9 +388,12 @@ public class LocalPluginController {
         if (Objects.isNull(selectorData.getLogged())) {
             selectorData.setLogged(false);
         }
+        if (Objects.isNull(selectorData.getMatchRestful())) {
+            selectorData.setMatchRestful(false);
+        }
         return selectorData;
     }
-    
+
     private RuleData buildDefaultRuleData(final RuleData ruleData) {
         if (StringUtils.isEmpty(ruleData.getId())) {
             ruleData.setId(UUIDUtils.getInstance().generateShortUuid());
@@ -357,24 +413,27 @@ public class LocalPluginController {
         if (Objects.isNull(ruleData.getLoged())) {
             ruleData.setLoged(false);
         }
+        if (Objects.isNull(ruleData.getMatchRestful())) {
+            ruleData.setMatchRestful(false);
+        }
         return ruleData;
     }
-    
+
     /**
      * The type Selector rule data.
      */
     public static class SelectorRuleData {
-        
+
         private String pluginName;
-        
+
         private String selectorName;
-        
+
         private String selectorHandler;
-    
+
         private String ruleHandler;
-    
+
         private List<ConditionData> conditionDataList;
-    
+
         /**
          * Gets plugin name.
          *
@@ -383,7 +442,7 @@ public class LocalPluginController {
         public String getPluginName() {
             return pluginName;
         }
-    
+
         /**
          * Sets plugin name.
          *
@@ -392,7 +451,7 @@ public class LocalPluginController {
         public void setPluginName(final String pluginName) {
             this.pluginName = pluginName;
         }
-    
+
         /**
          * Gets selector name.
          *
@@ -401,7 +460,7 @@ public class LocalPluginController {
         public String getSelectorName() {
             return selectorName;
         }
-    
+
         /**
          * Sets selector name.
          *
@@ -410,7 +469,7 @@ public class LocalPluginController {
         public void setSelectorName(final String selectorName) {
             this.selectorName = selectorName;
         }
-    
+
         /**
          * Gets selector handler.
          *
@@ -419,7 +478,7 @@ public class LocalPluginController {
         public String getSelectorHandler() {
             return selectorHandler;
         }
-    
+
         /**
          * Sets selector handler.
          *
@@ -428,7 +487,7 @@ public class LocalPluginController {
         public void setSelectorHandler(final String selectorHandler) {
             this.selectorHandler = selectorHandler;
         }
-    
+
         /**
          * Gets rule handler.
          *
@@ -437,7 +496,7 @@ public class LocalPluginController {
         public String getRuleHandler() {
             return ruleHandler;
         }
-    
+
         /**
          * Sets rule handler.
          *
@@ -446,7 +505,7 @@ public class LocalPluginController {
         public void setRuleHandler(final String ruleHandler) {
             this.ruleHandler = ruleHandler;
         }
-    
+
         /**
          * Gets condition data list.
          *
@@ -455,7 +514,7 @@ public class LocalPluginController {
         public List<ConditionData> getConditionDataList() {
             return conditionDataList;
         }
-    
+
         /**
          * Sets condition data list.
          *
@@ -465,24 +524,24 @@ public class LocalPluginController {
             this.conditionDataList = conditionDataList;
         }
     }
-    
+
     /**
      * The type Selector rules data.
      */
     public static class SelectorRulesData {
-        
+
         private String pluginName;
-    
+
         private String selectorName;
-    
+
         private Integer matchMode;
-    
+
         private String selectorHandler;
-    
+
         private List<ConditionData> conditionDataList;
-    
+
         private List<RuleLocalData> ruleDataList;
-    
+
         /**
          * Gets plugin name.
          *
@@ -491,7 +550,7 @@ public class LocalPluginController {
         public String getPluginName() {
             return pluginName;
         }
-    
+
         /**
          * Sets plugin name.
          *
@@ -500,7 +559,7 @@ public class LocalPluginController {
         public void setPluginName(final String pluginName) {
             this.pluginName = pluginName;
         }
-    
+
         /**
          * Gets selector name.
          *
@@ -509,7 +568,7 @@ public class LocalPluginController {
         public String getSelectorName() {
             return selectorName;
         }
-    
+
         /**
          * Sets selector name.
          *
@@ -518,7 +577,7 @@ public class LocalPluginController {
         public void setSelectorName(final String selectorName) {
             this.selectorName = selectorName;
         }
-    
+
         /**
          * Gets selector handler.
          *
@@ -527,7 +586,7 @@ public class LocalPluginController {
         public String getSelectorHandler() {
             return selectorHandler;
         }
-    
+
         /**
          * Sets selector handler.
          *
@@ -536,7 +595,7 @@ public class LocalPluginController {
         public void setSelectorHandler(final String selectorHandler) {
             this.selectorHandler = selectorHandler;
         }
-    
+
         /**
          * Gets match mode.
          *
@@ -545,7 +604,7 @@ public class LocalPluginController {
         public Integer getMatchMode() {
             return matchMode;
         }
-    
+
         /**
          * Sets match mode.
          *
@@ -554,7 +613,7 @@ public class LocalPluginController {
         public void setMatchMode(final Integer matchMode) {
             this.matchMode = matchMode;
         }
-    
+
         /**
          * Gets condition data list.
          *
@@ -563,7 +622,7 @@ public class LocalPluginController {
         public List<ConditionData> getConditionDataList() {
             return conditionDataList;
         }
-    
+
         /**
          * Sets condition data list.
          *
@@ -572,7 +631,7 @@ public class LocalPluginController {
         public void setConditionDataList(final List<ConditionData> conditionDataList) {
             this.conditionDataList = conditionDataList;
         }
-    
+
         /**
          * Gets rule data list.
          *
@@ -581,7 +640,7 @@ public class LocalPluginController {
         public List<RuleLocalData> getRuleDataList() {
             return ruleDataList;
         }
-    
+
         /**
          * Sets rule data list.
          *
@@ -590,22 +649,22 @@ public class LocalPluginController {
         public void setRuleDataList(final List<RuleLocalData> ruleDataList) {
             this.ruleDataList = ruleDataList;
         }
-        
+
     }
-    
+
     /**
      * The type Rule data dto.
      */
     public static class RuleLocalData {
-    
+
         private String ruleName;
-        
+
         private String ruleHandler;
-        
+
         private Integer matchMode;
-        
+
         private List<ConditionData> conditionDataList;
-    
+
         /**
          * Gets rule name.
          *
@@ -614,7 +673,7 @@ public class LocalPluginController {
         public String getRuleName() {
             return ruleName;
         }
-    
+
         /**
          * Sets rule name.
          *
@@ -623,7 +682,7 @@ public class LocalPluginController {
         public void setRuleName(final String ruleName) {
             this.ruleName = ruleName;
         }
-    
+
         /**
          * Gets rule handler.
          *
@@ -632,7 +691,7 @@ public class LocalPluginController {
         public String getRuleHandler() {
             return ruleHandler;
         }
-    
+
         /**
          * Sets rule handler.
          *
@@ -641,7 +700,7 @@ public class LocalPluginController {
         public void setRuleHandler(final String ruleHandler) {
             this.ruleHandler = ruleHandler;
         }
-    
+
         /**
          * Gets match mode.
          *
@@ -650,7 +709,7 @@ public class LocalPluginController {
         public Integer getMatchMode() {
             return matchMode;
         }
-    
+
         /**
          * Sets match mode.
          *
@@ -659,7 +718,7 @@ public class LocalPluginController {
         public void setMatchMode(final Integer matchMode) {
             this.matchMode = matchMode;
         }
-    
+
         /**
          * Gets condition data list.
          *
@@ -668,7 +727,7 @@ public class LocalPluginController {
         public List<ConditionData> getConditionDataList() {
             return conditionDataList;
         }
-    
+
         /**
          * Sets condition data list.
          *

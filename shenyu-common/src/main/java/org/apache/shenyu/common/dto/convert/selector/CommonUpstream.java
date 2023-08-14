@@ -23,7 +23,7 @@ import java.util.Objects;
  * this is common upstream.
  */
 public class CommonUpstream {
-    
+
     /**
      * this is http protocol.
      */
@@ -38,37 +38,41 @@ public class CommonUpstream {
      * url.
      */
     private String upstreamUrl;
-    
+
     /**
      * false close/ true open.
      */
     private boolean status = true;
-    
+
     /**
      * startup time.
      */
     private long timestamp;
-    
+
     /**
      * Instantiates a new Common upstream.
      */
     public CommonUpstream() {
-        
+
     }
-    
+
     /**
      * Instantiates a new Common upstream.
      *
      * @param protocol the protocol
      * @param upstreamHost the upstream host
      * @param upstreamUrl the upstream url
+     * @param status the upstream status
+     * @param timestamp the upstream timestamp
      */
-    public CommonUpstream(final String protocol, final String upstreamHost, final String upstreamUrl) {
+    public CommonUpstream(final String protocol, final String upstreamHost, final String upstreamUrl, final boolean status, final long timestamp) {
         this.protocol = protocol;
         this.upstreamHost = upstreamHost;
         this.upstreamUrl = upstreamUrl;
+        this.status = status;
+        this.timestamp = timestamp;
     }
-    
+
     /**
      * get upstreamHost.
      *
@@ -77,7 +81,7 @@ public class CommonUpstream {
     public String getUpstreamHost() {
         return upstreamHost;
     }
-    
+
     /**
      * set upstreamHost.
      *
@@ -86,7 +90,7 @@ public class CommonUpstream {
     public void setUpstreamHost(final String upstreamHost) {
         this.upstreamHost = upstreamHost;
     }
-    
+
     /**
      * get protocol.
      *
@@ -95,7 +99,7 @@ public class CommonUpstream {
     public String getProtocol() {
         return protocol;
     }
-    
+
     /**
      * set protocol.
      *
@@ -104,7 +108,7 @@ public class CommonUpstream {
     public void setProtocol(final String protocol) {
         this.protocol = protocol;
     }
-    
+
     /**
      * get upstreamUrl.
      *
@@ -113,7 +117,7 @@ public class CommonUpstream {
     public String getUpstreamUrl() {
         return upstreamUrl;
     }
-    
+
     /**
      * set upstreamUrl.
      *
@@ -122,7 +126,7 @@ public class CommonUpstream {
     public void setUpstreamUrl(final String upstreamUrl) {
         this.upstreamUrl = upstreamUrl;
     }
-    
+
     /**
      * get status.
      *
@@ -131,7 +135,7 @@ public class CommonUpstream {
     public boolean isStatus() {
         return status;
     }
-    
+
     /**
      * set status.
      *
@@ -140,7 +144,7 @@ public class CommonUpstream {
     public void setStatus(final boolean status) {
         this.status = status;
     }
-    
+
     /**
      * get timestamp.
      *
@@ -149,7 +153,7 @@ public class CommonUpstream {
     public long getTimestamp() {
         return timestamp;
     }
-    
+
     /**
      * set timestamp.
      *
@@ -158,7 +162,7 @@ public class CommonUpstream {
     public void setTimestamp(final long timestamp) {
         this.timestamp = timestamp;
     }
-    
+
     /**
      * Default status boolean.
      *
@@ -187,15 +191,20 @@ public class CommonUpstream {
 
     @Override
     public String toString() {
-        return "DivideUpstream{"
-                + "upstreamHost='"
-                + upstreamHost
-                + '\''
-                + ", protocol='"
+        return "CommonUpstream{"
+                + "protocol='"
                 + protocol
+                + '\''
+                + ", upstreamHost='"
+                + upstreamHost
                 + '\''
                 + ", upstreamUrl='"
                 + upstreamUrl
+                + '\''
+                + ", status="
+                + status
+                + ", timestamp="
+                + timestamp
                 + '}';
     }
 }

@@ -17,6 +17,10 @@
 
 package org.apache.shenyu.admin.model.dto;
 
+import org.apache.shenyu.admin.mapper.PluginHandleMapper;
+import org.apache.shenyu.admin.validation.annotation.Existed;
+
+import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 import java.io.Serializable;
 import java.util.Objects;
@@ -25,31 +29,32 @@ import java.util.Objects;
  * this plugin handle from web front.
  */
 public class PluginHandleDTO implements Serializable {
-
+    
     private static final long serialVersionUID = 8010034956423631265L;
-
+    
     /**
      * primary key.
      */
+    @Existed(provider = PluginHandleMapper.class, nullOfIgnore = true, message = "rule not exited")
     private String id;
-
+    
     /**
      * plugin id.
      */
-    @NotNull
+    @NotBlank
     private String pluginId;
-
+    
     /**
-     * the attribute name.
+     * the field name.
      */
-    @NotNull
+    @NotBlank
     private String field;
-
+    
     /**
      * the attribute label.
      */
     private String label;
-
+    
     /**
      * the data type.
      * 1 indicates number
@@ -58,24 +63,26 @@ public class PluginHandleDTO implements Serializable {
      */
     @NotNull
     private Integer dataType;
-
+    
     /**
-     *  the attribute type.
-     *  1  selector,
-     *  2  rule.
+     * the field type.
+     * 1  selector,
+     * 2  rule.
      */
+    @NotNull
     private Integer type;
-
+    
     /**
      * the attribute sort.
      */
+    @NotNull
     private Integer sort;
-
+    
     /**
      * the attribute extObj.
      */
     private String extObj;
-
+    
     /**
      * Gets the value of id.
      *
@@ -84,7 +91,7 @@ public class PluginHandleDTO implements Serializable {
     public String getId() {
         return id;
     }
-
+    
     /**
      * Sets the id.
      *
@@ -93,7 +100,7 @@ public class PluginHandleDTO implements Serializable {
     public void setId(final String id) {
         this.id = id;
     }
-
+    
     /**
      * Gets the value of pluginId.
      *
@@ -102,7 +109,7 @@ public class PluginHandleDTO implements Serializable {
     public String getPluginId() {
         return pluginId;
     }
-
+    
     /**
      * Sets the pluginId.
      *
@@ -111,7 +118,7 @@ public class PluginHandleDTO implements Serializable {
     public void setPluginId(final String pluginId) {
         this.pluginId = pluginId;
     }
-
+    
     /**
      * Gets the value of field.
      *
@@ -120,7 +127,7 @@ public class PluginHandleDTO implements Serializable {
     public String getField() {
         return field;
     }
-
+    
     /**
      * Sets the field.
      *
@@ -129,7 +136,7 @@ public class PluginHandleDTO implements Serializable {
     public void setField(final String field) {
         this.field = field;
     }
-
+    
     /**
      * Gets the value of label.
      *
@@ -138,7 +145,7 @@ public class PluginHandleDTO implements Serializable {
     public String getLabel() {
         return label;
     }
-
+    
     /**
      * Sets the label.
      *
@@ -147,7 +154,7 @@ public class PluginHandleDTO implements Serializable {
     public void setLabel(final String label) {
         this.label = label;
     }
-
+    
     /**
      * Gets the value of dataType.
      *
@@ -156,7 +163,7 @@ public class PluginHandleDTO implements Serializable {
     public Integer getDataType() {
         return dataType;
     }
-
+    
     /**
      * Sets the dataType.
      *
@@ -165,7 +172,7 @@ public class PluginHandleDTO implements Serializable {
     public void setDataType(final Integer dataType) {
         this.dataType = dataType;
     }
-
+    
     /**
      * Gets the value of type.
      *
@@ -174,7 +181,7 @@ public class PluginHandleDTO implements Serializable {
     public Integer getType() {
         return type;
     }
-
+    
     /**
      * Sets the type.
      *
@@ -183,7 +190,7 @@ public class PluginHandleDTO implements Serializable {
     public void setType(final Integer type) {
         this.type = type;
     }
-
+    
     /**
      * Gets the value of sort.
      *
@@ -192,7 +199,7 @@ public class PluginHandleDTO implements Serializable {
     public Integer getSort() {
         return sort;
     }
-
+    
     /**
      * Sets the sort.
      *
@@ -201,7 +208,7 @@ public class PluginHandleDTO implements Serializable {
     public void setSort(final Integer sort) {
         this.sort = sort;
     }
-
+    
     /**
      * Gets the value of extObj.
      *
@@ -210,7 +217,7 @@ public class PluginHandleDTO implements Serializable {
     public String getExtObj() {
         return extObj;
     }
-
+    
     /**
      * Sets the extObj.
      *
@@ -219,7 +226,7 @@ public class PluginHandleDTO implements Serializable {
     public void setExtObj(final String extObj) {
         this.extObj = extObj;
     }
-
+    
     @Override
     public boolean equals(final Object o) {
         if (this == o) {
@@ -238,7 +245,7 @@ public class PluginHandleDTO implements Serializable {
                 && Objects.equals(sort, that.sort)
                 && Objects.equals(extObj, that.extObj);
     }
-
+    
     @Override
     public int hashCode() {
         return Objects.hash(id, pluginId, field, label, dataType, type, sort, extObj);

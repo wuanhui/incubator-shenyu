@@ -16,7 +16,7 @@
  */
     
 package org.apache.shenyu.admin.service.register;
-    
+
 import org.apache.commons.lang3.StringUtils;
 import org.apache.shenyu.admin.model.entity.MetaDataDO;
 import org.apache.shenyu.admin.model.entity.SelectorDO;
@@ -27,20 +27,21 @@ import org.apache.shenyu.common.exception.ShenyuException;
 import org.apache.shenyu.common.utils.GsonUtils;
 import org.apache.shenyu.register.common.dto.MetaDataRegisterDTO;
 import org.apache.shenyu.register.common.dto.URIRegisterDTO;
-import org.junit.Assert;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
@@ -49,7 +50,8 @@ import static org.mockito.Mockito.when;
 /**
  * Test cases for {@link ShenyuClientRegisterTarsServiceImpl}.
  */
-@RunWith(MockitoJUnitRunner.Silent.class)
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 public final class ShenyuClientRegisterTarsServiceImplTest {
     
     @InjectMocks
@@ -57,21 +59,21 @@ public final class ShenyuClientRegisterTarsServiceImplTest {
 
     @Mock
     private MetaDataServiceImpl metaDataService;
-    
+
     @Test
     public void testRpcType() {
-        Assert.assertEquals(RpcTypeEnum.TARS.getName(), shenyuClientRegisterTarsService.rpcType());
+        assertEquals(RpcTypeEnum.TARS.getName(), shenyuClientRegisterTarsService.rpcType());
     }
     
     @Test
     public void testSelectorHandler() {
         MetaDataRegisterDTO metaDataRegisterDTO = MetaDataRegisterDTO.builder().build();
-        Assert.assertEquals(StringUtils.EMPTY, shenyuClientRegisterTarsService.selectorHandler(metaDataRegisterDTO));
+        assertEquals(StringUtils.EMPTY, shenyuClientRegisterTarsService.selectorHandler(metaDataRegisterDTO));
     }
     
     @Test
     public void testRuleHandler() {
-        Assert.assertEquals(StringUtils.EMPTY, shenyuClientRegisterTarsService.ruleHandler());
+        assertEquals(StringUtils.EMPTY, shenyuClientRegisterTarsService.ruleHandler());
     }
     
     @Test
@@ -99,24 +101,24 @@ public final class ShenyuClientRegisterTarsServiceImplTest {
         list.add(URIRegisterDTO.builder().appName("test1").rpcType(RpcTypeEnum.TARS.getName()).host("localhost").port(8090).build());
         SelectorDO selectorDO = mock(SelectorDO.class);
         when(selectorDO.getHandle()).thenReturn(returnStr);
-        doNothing().when(shenyuClientRegisterTarsService).doSubmit(any(), any());
+        doReturn(false).when(shenyuClientRegisterTarsService).doSubmit(any(), any());
         String actual = shenyuClientRegisterTarsService.buildHandle(list, selectorDO);
         assertEquals(actual, expected);
         List<TarsUpstream> resultList = GsonUtils.getInstance().fromCurrentList(actual, TarsUpstream.class);
         assertEquals(resultList.size(), 2);
-    
+
         list.clear();
         list.add(URIRegisterDTO.builder().appName("test1").rpcType(RpcTypeEnum.TARS.getName()).host("localhost").port(8092).build());
         selectorDO = mock(SelectorDO.class);
         when(selectorDO.getHandle()).thenReturn(returnStr);
-        doNothing().when(shenyuClientRegisterTarsService).doSubmit(any(), any());
+        doReturn(false).when(shenyuClientRegisterTarsService).doSubmit(any(), any());
         actual = shenyuClientRegisterTarsService.buildHandle(list, selectorDO);
         resultList = GsonUtils.getInstance().fromCurrentList(actual, TarsUpstream.class);
         assertEquals(resultList.size(), 3);
-    
+
         list.clear();
         list.add(URIRegisterDTO.builder().appName("test1").rpcType(RpcTypeEnum.TARS.getName()).host("localhost").port(8090).build());
-        doNothing().when(shenyuClientRegisterTarsService).doSubmit(any(), any());
+        doReturn(false).when(shenyuClientRegisterTarsService).doSubmit(any(), any());
         selectorDO = mock(SelectorDO.class);
         actual = shenyuClientRegisterTarsService.buildHandle(list, selectorDO);
         resultList = GsonUtils.getInstance().fromCurrentList(actual, TarsUpstream.class);

@@ -22,14 +22,18 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.shenyu.admin.service.register.ShenyuClientRegisterService;
 import org.apache.shenyu.register.common.dto.URIRegisterDTO;
+import org.apache.shenyu.register.common.enums.EventType;
 import org.apache.shenyu.register.common.subsriber.ExecutorTypeSubscriber;
 import org.apache.shenyu.register.common.type.DataType;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * The type Uri register executor subscriber.
@@ -57,14 +61,40 @@ public class URIRegisterExecutorSubscriber implements ExecutorTypeSubscriber<URI
         if (CollectionUtils.isEmpty(dataList)) {
             return;
         }
-        findService(dataList).ifPresent(service -> {
-            Map<String, List<URIRegisterDTO>> listMap = buildData(dataList);
-            listMap.forEach(service::registerURI);
-        });
+        final Map<String, List<URIRegisterDTO>> groupByRpcType = dataList.stream()
+                .filter(data -> StringUtils.isNotBlank(data.getRpcType()))
+                .collect(Collectors.groupingBy(URIRegisterDTO::getRpcType));
+        for (Map.Entry<String, List<URIRegisterDTO>> entry : groupByRpcType.entrySet()) {
+            final String rpcType = entry.getKey();
+            Optional.ofNullable(shenyuClientRegisterService.get(rpcType))
+                    .ifPresent(service -> {
+                        final List<URIRegisterDTO> list = entry.getValue();
+                        Map<String, List<URIRegisterDTO>> listMap = buildData(list);
+                        listMap.forEach((selectorName, uriList) -> {
+                            final List<URIRegisterDTO> register = new LinkedList<>();
+                            final List<URIRegisterDTO> offline = new LinkedList<>();
+                            for (URIRegisterDTO d : uriList) {
+                                final EventType eventType = d.getEventType();
+                                if (Objects.isNull(eventType) || EventType.REGISTER.equals(eventType)) {
+                                    // eventType is null, should be old versions
+                                    register.add(d);
+                                } else if (EventType.OFFLINE.equals(eventType)) {
+                                    offline.add(d);
+                                }
+                            }
+                            if (CollectionUtils.isNotEmpty(register)) {
+                                service.registerURI(selectorName, register);
+                            }
+                            if (CollectionUtils.isNotEmpty(offline)) {
+                                service.offline(selectorName, offline);
+                            }
+                        });
+                    });
+        }
     }
     
     private Map<String, List<URIRegisterDTO>> buildData(final Collection<URIRegisterDTO> dataList) {
-        Map<String, List<URIRegisterDTO>> resultMap = new HashMap<>();
+        Map<String, List<URIRegisterDTO>> resultMap = new HashMap<>(8);
         for (URIRegisterDTO dto : dataList) {
             String contextPath = dto.getContextPath();
             String key = StringUtils.isNotEmpty(contextPath) ? contextPath : dto.getAppName();
@@ -79,9 +109,5 @@ public class URIRegisterExecutorSubscriber implements ExecutorTypeSubscriber<URI
             }
         }
         return resultMap;
-    }
-    
-    private Optional<ShenyuClientRegisterService> findService(final Collection<URIRegisterDTO> dataList) {
-        return dataList.stream().map(dto -> shenyuClientRegisterService.get(dto.getRpcType())).findFirst();
     }
 }

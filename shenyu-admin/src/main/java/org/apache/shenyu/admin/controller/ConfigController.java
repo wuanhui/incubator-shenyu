@@ -23,13 +23,11 @@ import org.apache.shenyu.admin.model.result.ShenyuAdminResult;
 import org.apache.shenyu.admin.utils.ShenyuResultMessage;
 import org.apache.shenyu.common.dto.ConfigData;
 import org.apache.shenyu.common.enums.ConfigGroupEnum;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
 
-import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.validation.constraints.NotNull;
@@ -38,14 +36,16 @@ import java.util.Map;
 /**
  * This Controller only when HttpLongPollingDataChangedListener exist, will take effect.
  */
-@ConditionalOnBean(HttpLongPollingDataChangedListener.class)
-@RestController
+@ResponseBody
 @RequestMapping("/configs")
 public class ConfigController {
-
-    @Resource
-    private HttpLongPollingDataChangedListener longPollingListener;
-
+    
+    private final HttpLongPollingDataChangedListener longPollingListener;
+    
+    public ConfigController(final HttpLongPollingDataChangedListener longPollingListener) {
+        this.longPollingListener = longPollingListener;
+    }
+    
     /**
      * Fetch configs shenyu result.
      *
@@ -61,7 +61,7 @@ public class ConfigController {
         }
         return ShenyuAdminResult.success(ShenyuResultMessage.SUCCESS, result);
     }
-
+    
     /**
      * Listener.
      *
@@ -72,5 +72,5 @@ public class ConfigController {
     public void listener(final HttpServletRequest request, final HttpServletResponse response) {
         longPollingListener.doLongPolling(request, response);
     }
-
+    
 }

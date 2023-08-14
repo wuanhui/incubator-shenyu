@@ -20,6 +20,7 @@ package org.apache.shenyu.admin.service.register;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.shenyu.admin.model.entity.MetaDataDO;
 import org.apache.shenyu.admin.model.entity.SelectorDO;
+import org.apache.shenyu.admin.service.converter.DivideSelectorHandleConverter;
 import org.apache.shenyu.admin.service.impl.MetaDataServiceImpl;
 import org.apache.shenyu.common.dto.convert.rule.impl.DivideRuleHandle;
 import org.apache.shenyu.common.dto.convert.selector.DivideUpstream;
@@ -29,20 +30,23 @@ import org.apache.shenyu.common.exception.ShenyuException;
 import org.apache.shenyu.common.utils.GsonUtils;
 import org.apache.shenyu.register.common.dto.MetaDataRegisterDTO;
 import org.apache.shenyu.register.common.dto.URIRegisterDTO;
-import org.junit.Assert;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
@@ -51,7 +55,8 @@ import static org.mockito.Mockito.when;
 /**
  * Test cases for {@link ShenyuClientRegisterDivideServiceImpl}.
  */
-@RunWith(MockitoJUnitRunner.Silent.class)
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 public final class ShenyuClientRegisterDivideServiceImplTest {
     
     public static final String LOCALHOST = "localhost";
@@ -61,21 +66,27 @@ public final class ShenyuClientRegisterDivideServiceImplTest {
     
     @Mock
     private MetaDataServiceImpl metaDataService;
-    
+
+    @BeforeEach
+    public void setUp() {
+        DivideSelectorHandleConverter divideSelectorHandleConverter = new DivideSelectorHandleConverter();
+        ReflectionTestUtils.setField(shenyuClientRegisterDivideService, "divideSelectorHandleConverter", divideSelectorHandleConverter);
+    }
+
     @Test
     public void testRpcType() {
-        Assert.assertEquals(RpcTypeEnum.HTTP.getName(), shenyuClientRegisterDivideService.rpcType());
+        assertEquals(RpcTypeEnum.HTTP.getName(), shenyuClientRegisterDivideService.rpcType());
     }
     
     @Test
     public void testSelectorHandler() {
         MetaDataRegisterDTO metaDataRegisterDTO = MetaDataRegisterDTO.builder().build();
-        Assert.assertEquals(StringUtils.EMPTY, shenyuClientRegisterDivideService.selectorHandler(metaDataRegisterDTO));
+        assertEquals(StringUtils.EMPTY, shenyuClientRegisterDivideService.selectorHandler(metaDataRegisterDTO));
     }
     
     @Test
     public void testRuleHandler() {
-        Assert.assertEquals(new DivideRuleHandle().toJson(), shenyuClientRegisterDivideService.ruleHandler());
+        assertEquals(new DivideRuleHandle().toJson(), shenyuClientRegisterDivideService.ruleHandler());
     }
     
     @Test
@@ -86,11 +97,11 @@ public final class ShenyuClientRegisterDivideServiceImplTest {
         shenyuClientRegisterDivideService.registerMetadata(metaDataDTO);
         verify(metaDataService).saveOrUpdateMetaData(metaDataDO, metaDataDTO);
     }
-    
+
     @Test
     public void testBuildHandle() {
         shenyuClientRegisterDivideService = spy(shenyuClientRegisterDivideService);
-        
+
         final String returnStr = "[{protocol:'http://',upstreamHost:'localhost',upstreamUrl:'localhost:8090',warmup:10,weight:50,status:true,timestamp:1637826588267},"
                 + "{protocol:'http://',upstreamHost:'localhost',upstreamUrl:'localhost:8091',warmup:10,weight:50,status:true,timestamp:1637826588267}]";
         final String expected = "[{\"weight\":50,\"warmup\":10,\"protocol\":\"http://\",\"upstreamHost\":\"localhost\",\"upstreamUrl\":\"localhost:8090\",\"status\":true,\"timestamp\":1637826588267},"
@@ -99,30 +110,30 @@ public final class ShenyuClientRegisterDivideServiceImplTest {
         list.add(URIRegisterDTO.builder().protocol("http://").appName("test1").rpcType(RpcTypeEnum.HTTP.getName()).host(LOCALHOST).port(8090).build());
         SelectorDO selectorDO = mock(SelectorDO.class);
         when(selectorDO.getHandle()).thenReturn(returnStr);
-        doNothing().when(shenyuClientRegisterDivideService).doSubmit(any(), any());
+        doReturn(false).when(shenyuClientRegisterDivideService).doSubmit(any(), any());
         String actual = shenyuClientRegisterDivideService.buildHandle(list, selectorDO);
         assertEquals(expected, actual);
         List<TarsUpstream> resultList = GsonUtils.getInstance().fromCurrentList(actual, TarsUpstream.class);
         assertEquals(resultList.size(), 2);
-        
+
         list.clear();
         list.add(URIRegisterDTO.builder().appName("test1").rpcType(RpcTypeEnum.HTTP.getName()).host(LOCALHOST).port(8092).build());
         selectorDO = mock(SelectorDO.class);
         when(selectorDO.getHandle()).thenReturn(returnStr);
-        doNothing().when(shenyuClientRegisterDivideService).doSubmit(any(), any());
+        doReturn(false).when(shenyuClientRegisterDivideService).doSubmit(any(), any());
         actual = shenyuClientRegisterDivideService.buildHandle(list, selectorDO);
         resultList = GsonUtils.getInstance().fromCurrentList(actual, TarsUpstream.class);
         assertEquals(resultList.size(), 3);
-        
+
         list.clear();
         list.add(URIRegisterDTO.builder().appName("test1").rpcType(RpcTypeEnum.HTTP.getName()).host(LOCALHOST).port(8090).build());
-        doNothing().when(shenyuClientRegisterDivideService).doSubmit(any(), any());
+        doReturn(false).when(shenyuClientRegisterDivideService).doSubmit(any(), any());
         selectorDO = mock(SelectorDO.class);
         actual = shenyuClientRegisterDivideService.buildHandle(list, selectorDO);
         resultList = GsonUtils.getInstance().fromCurrentList(actual, TarsUpstream.class);
         assertEquals(resultList.size(), 1);
     }
-    
+
     @Test
     public void testBuildDivideUpstreamList() {
         List<URIRegisterDTO> list = new ArrayList<>();

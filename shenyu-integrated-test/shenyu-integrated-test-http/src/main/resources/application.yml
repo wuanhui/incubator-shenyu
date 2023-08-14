@@ -22,6 +22,8 @@ spring:
     allow-bean-definition-overriding: true
   application:
     name: shenyu-bootstrap
+  codec:
+    max-in-memory-size: 64MB
 #  cloud:
 #    nacos:
 #      discovery:
@@ -33,6 +35,16 @@ management:
       enabled: false
 
 shenyu:
+  httpclient:
+    maxInMemorySize: 64
+  metrics:
+    enabled: true
+    name: prometheus
+    host: 0.0.0.0
+    port: 8090
+    jmxConfig:
+    props:
+      jvm_enabled: true
   switchConfig:
     local: true
   cross:
@@ -40,6 +52,7 @@ shenyu:
   sync:
     websocket:
       urls: ws://localhost:9095/websocket
+      allowOrigin: ws://localhost:9195
   #    zookeeper:
   #      url: localhost:2181
   #      sessionTimeout: 5000
@@ -62,6 +75,9 @@ shenyu:
     paths:
       - /favicon.ico
       - /actuator/health
+  local:
+    enabled: true
+    sha512Key: "BA3253876AED6BC22D4A6FF53D8406C6AD864195ED144AB5C87621B6C233B548BAEAE6956DF346EC8C17F5EA10F35EE3CBC514797ED7DDD3145464E2A0BAB413"
 
 #eureka:
 #  client:
@@ -76,8 +92,8 @@ logging:
     root: info
     org.springframework.boot: info
     org.apache.ibatis: info
-    org.apache.shenyu.bonuspoint: info
-    org.apache.shenyu.lottery: info
-    org.apache.shenyu: info
+    org.apache.shenyu.bonuspoint: debug
+    org.apache.shenyu.lottery: debug
+    org.apache.shenyu: debug
 
 

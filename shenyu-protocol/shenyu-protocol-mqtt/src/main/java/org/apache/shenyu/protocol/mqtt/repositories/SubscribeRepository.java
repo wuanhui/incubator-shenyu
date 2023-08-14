@@ -18,6 +18,9 @@
 package org.apache.shenyu.protocol.mqtt.repositories;
 
 import io.netty.channel.Channel;
+import io.netty.handler.codec.mqtt.MqttTopicSubscription;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Map;
@@ -32,22 +35,44 @@ import java.util.concurrent.CopyOnWriteArraySet;
  */
 public class SubscribeRepository implements BaseRepository<List<String>, List<Channel>> {
 
+    private static final Logger LOG = LoggerFactory.getLogger(SubscribeRepository.class);
+
     private static final Map<String, List<Channel>> TOPIC_CHANNEL_FACTORY = new ConcurrentHashMap<>();
 
     @Override
     public void add(final List<String> topics, final List<Channel> channels) {
-
         CompletableFuture.runAsync(() -> topics.parallelStream().forEach(s -> {
             List<Channel> list = get(s);
             list.addAll(channels);
             TOPIC_CHANNEL_FACTORY.put(s, list);
         }));
+    }
 
+    /**
+     * add subscribe channel.
+     * @param channel channel
+     * @param mqttTopicSubscription mqtt subscription info
+     */
+    public void add(final Channel channel, final List<MqttTopicSubscription> mqttTopicSubscription) {
+        CompletableFuture.runAsync(() -> mqttTopicSubscription.parallelStream().forEach(s -> {
+            List<Channel> channels = get(s.topicName());
+            channels.add(channel);
+            TOPIC_CHANNEL_FACTORY.put(s.topicName(), channels);
+        }));
     }
 
     @Override
     public void remove(final List<String> topics) {
         CompletableFuture.runAsync(() -> topics.parallelStream().forEach(TOPIC_CHANNEL_FACTORY::remove));
+    }
+
+    /**
+     * remove subscribe channel.
+     * @param topics topics
+     * @param channel channel
+     */
+    public void remove(final List<String> topics, final Channel channel) {
+        CompletableFuture.runAsync(() -> topics.parallelStream().forEach(topic -> TOPIC_CHANNEL_FACTORY.get(topic).remove(channel)));
     }
 
     @Override
@@ -65,4 +90,5 @@ public class SubscribeRepository implements BaseRepository<List<String>, List<Ch
     public List<Channel> get(final String topic) {
         return TOPIC_CHANNEL_FACTORY.getOrDefault(topic, new CopyOnWriteArrayList<>());
     }
+
 }

@@ -18,6 +18,7 @@
 package org.apache.shenyu.sync.data.nacos.handler;
 
 import com.alibaba.nacos.api.config.ConfigService;
+import com.alibaba.nacos.api.config.ConfigType;
 import com.alibaba.nacos.api.exception.NacosException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -34,9 +35,8 @@ import org.apache.shenyu.common.utils.GsonUtils;
 import org.apache.shenyu.sync.data.api.AuthDataSubscriber;
 import org.apache.shenyu.sync.data.api.MetaDataSubscriber;
 import org.apache.shenyu.sync.data.api.PluginDataSubscriber;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -49,6 +49,8 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.stream.Collectors;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * add test case for {@link NacosCacheHandler}.
@@ -81,11 +83,13 @@ public final class NacosCacheHandlerTest {
 
     private static final String META_DATA_ID = "shenyu.meta.json";
 
+    private static final String PROXY_SELECTOR_DATA_ID = "shenyu.proxy.selector.json";
+
     private NacosCacheHandler nacosCacheHandlerService;
 
     private ConfigService configService;
 
-    @Before
+    @BeforeEach
     public void setup() {
         configService = new NacosMockConfigService();
     }
@@ -118,11 +122,11 @@ public final class NacosCacheHandlerTest {
                 unsubscribeList.add(pluginData);
                 latch.countDown();
             }
-        }, Collections.emptyList(), Collections.emptyList());
+        }, Collections.emptyList(), Collections.emptyList(), Collections.emptyList());
         nacosCacheHandlerService.updatePluginMap(pluginData);
-        Assert.assertEquals(2, onSubscribeList.size());
-        Assert.assertEquals(2, unsubscribeList.size());
-        Assert.assertEquals(
+        assertEquals(2, onSubscribeList.size());
+        assertEquals(2, unsubscribeList.size());
+        assertEquals(
                 configService.getConfig(PLUGIN_DATA_ID, GROUP, 1),
                 GsonUtils.getInstance()
                         .toJson(ImmutableMap.of(pluginName2, pluginData2, pluginName1, pluginData1)));
@@ -165,11 +169,11 @@ public final class NacosCacheHandlerTest {
                 unsubscribeList.add(selectorData);
                 latch.countDown();
             }
-        }, Collections.emptyList(), Collections.emptyList());
+        }, Collections.emptyList(), Collections.emptyList(), Collections.emptyList());
         nacosCacheHandlerService.updateSelectorMap(selectorDataParam);
-        Assert.assertEquals(2, subscribeList.size());
-        Assert.assertEquals(2, unsubscribeList.size());
-        Assert.assertEquals(
+        assertEquals(2, subscribeList.size());
+        assertEquals(2, unsubscribeList.size());
+        assertEquals(
                 configService.getConfig(SELECTOR_DATA_ID, GROUP, 1),
                 GsonUtils.getInstance()
                         .toJson(
@@ -211,11 +215,11 @@ public final class NacosCacheHandlerTest {
                 unsubscribeList.add(ruleData);
                 latch.countDown();
             }
-        }, Collections.emptyList(), Collections.emptyList());
+        }, Collections.emptyList(), Collections.emptyList(), Collections.emptyList());
         nacosCacheHandlerService.updateRuleMap(ruleDataParam);
-        Assert.assertEquals(2, subscribeList.size());
-        Assert.assertEquals(2, unsubscribeList.size());
-        Assert.assertEquals(
+        assertEquals(2, subscribeList.size());
+        assertEquals(2, unsubscribeList.size());
+        assertEquals(
                 configService.getConfig(RULE_DATA_ID, GROUP, 1),
                 GsonUtils.getInstance()
                         .toJson(
@@ -253,11 +257,11 @@ public final class NacosCacheHandlerTest {
             }
         };
         nacosCacheHandlerService = new NacosCacheHandler(configService, null, Lists.newArrayList(metaDataSubscriber),
-                Collections.emptyList());
+                Collections.emptyList(), Collections.emptyList());
         nacosCacheHandlerService.updateMetaDataMap(metaDataParam);
-        Assert.assertEquals(2, subscribeList.size());
-        Assert.assertEquals(2, unsubscribeList.size());
-        Assert.assertEquals(
+        assertEquals(2, subscribeList.size());
+        assertEquals(2, unsubscribeList.size());
+        assertEquals(
                 configService.getConfig(META_DATA_ID, GROUP, 1),
                 GsonUtils.getInstance()
                         .toJson(ImmutableMap.of(metadataPath1, metaData1, metadataPath2, metaData2)));
@@ -294,12 +298,12 @@ public final class NacosCacheHandlerTest {
             }
         };
         nacosCacheHandlerService = new NacosCacheHandler(configService, null,
-                Collections.emptyList(), Lists.newArrayList(authDataSubscriber));
+                Collections.emptyList(), Lists.newArrayList(authDataSubscriber), null);
 
         nacosCacheHandlerService.updateAuthMap(appAuthDataParam);
-        Assert.assertEquals(2, subscribeList.size());
-        Assert.assertEquals(2, unsubscribeList.size());
-        Assert.assertEquals(
+        assertEquals(2, subscribeList.size());
+        assertEquals(2, unsubscribeList.size());
+        assertEquals(
                 configService.getConfig(AUTH_DATA_ID, GROUP, 100),
                 GsonUtils.getInstance()
                         .toJson(ImmutableMap.of(mockAppKey2, appAuthData2, mockAppKey, appAuthData)));
@@ -330,7 +334,7 @@ public final class NacosCacheHandlerTest {
             }
         };
         nacosCacheHandlerService = new NacosCacheHandler(configService, null,
-                Collections.emptyList(), Lists.newArrayList(authDataSubscriber));
+                Collections.emptyList(), Lists.newArrayList(authDataSubscriber), null);
 
         NacosCacheHandler.OnChange oc = nacosCacheHandlerService::updateAuthMap;
         nacosCacheHandlerService.watcherData(AUTH_DATA_ID, oc);
@@ -461,6 +465,6 @@ public final class NacosCacheHandlerTest {
     }
 
     private void publishConfig(final String dataId, final Object data) throws NacosException {
-        configService.publishConfig(dataId, GROUP, GsonUtils.getInstance().toJson(data));
+        configService.publishConfig(dataId, GROUP, GsonUtils.getInstance().toJson(data), ConfigType.JSON.getType());
     }
 }

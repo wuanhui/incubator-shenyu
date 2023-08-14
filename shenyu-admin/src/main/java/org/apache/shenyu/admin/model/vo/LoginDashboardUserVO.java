@@ -17,9 +17,7 @@
 
 package org.apache.shenyu.admin.model.vo;
 
-import org.springframework.beans.BeanUtils;
-
-import java.util.Optional;
+import org.apache.shenyu.admin.transfer.DashboardUserTransfer;
 
 /**
  * login dashboard return user info's vo.
@@ -32,6 +30,11 @@ public class LoginDashboardUserVO extends DashboardUserVO {
      * token.
      */
     private String token;
+
+    /**
+     * expired time(milliSeconds).
+     */
+    private Long expiredTime;
 
     public LoginDashboardUserVO() {
     }
@@ -57,17 +60,32 @@ public class LoginDashboardUserVO extends DashboardUserVO {
     }
 
     /**
+     * Gets the value of expiredTime.
+     *
+     * @return the value of expiredTime
+     */
+    public Long getExpiredTime() {
+        return expiredTime;
+    }
+
+    /**
+     * Sets the expiredTime.
+     *
+     * @param expiredTime expiredTime
+     * @return {@link LoginDashboardUserVO}
+     */
+    public LoginDashboardUserVO setExpiredTime(final Long expiredTime) {
+        this.expiredTime = expiredTime;
+        return this;
+    }
+
+    /**
      * build loginDashboardUserVO.
      *
      * @param dashboardUserVO {@linkplain DashboardUserVO}
      * @return {@linkplain LoginDashboardUserVO}
      */
     public static LoginDashboardUserVO buildLoginDashboardUserVO(final DashboardUserVO dashboardUserVO) {
-        return Optional.ofNullable(dashboardUserVO)
-                .map(item -> {
-                    LoginDashboardUserVO vo = new LoginDashboardUserVO();
-                    BeanUtils.copyProperties(item, vo);
-                    return vo;
-                }).orElse(null);
+        return DashboardUserTransfer.INSTANCE.transferVO2LoginVO(dashboardUserVO);
     }
 }

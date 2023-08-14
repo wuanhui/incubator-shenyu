@@ -17,25 +17,26 @@
 
 package org.apache.shenyu.register.client.zookeeper;
 
-import org.I0Itec.zkclient.ZkClient;
+import org.apache.curator.framework.CuratorFramework;
+import org.apache.curator.framework.listen.Listenable;
+import org.apache.curator.framework.state.ConnectionState;
+import org.apache.curator.framework.state.ConnectionStateListener;
 import org.apache.shenyu.common.enums.RpcTypeEnum;
-import org.apache.shenyu.common.utils.GsonUtils;
+import org.apache.shenyu.register.common.config.ShenyuRegisterCenterConfig;
 import org.apache.shenyu.register.common.dto.MetaDataRegisterDTO;
 import org.apache.shenyu.register.common.dto.URIRegisterDTO;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.mockito.MockedConstruction;
 
-import java.lang.reflect.Field;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Properties;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.when;
 
 /**
@@ -43,112 +44,41 @@ import static org.mockito.Mockito.when;
  */
 public class ZookeeperClientRegisterRepositoryTest {
 
-    private ZookeeperClientRegisterRepository repository;
-
-    private final Map<String, Object> zookeeperBroker = new HashMap<>();
-
-    private final Set<String> ephemeralNode = new HashSet<>();
-
-    @Before
-    public void setUp() throws NoSuchFieldException, IllegalAccessException {
-        this.repository = new ZookeeperClientRegisterRepository();
-        Class<? extends ZookeeperClientRegisterRepository> clazz = this.repository.getClass();
-
-        String fieldString = "zkClient";
-        Field field = clazz.getDeclaredField(fieldString);
-        field.setAccessible(true);
-        field.set(repository, mockZkClient());
-
-        zookeeperBroker.clear();
-        ephemeralNode.clear();
-    }
-
-    private ZkClient mockZkClient() {
-        ZkClient zkClient = mock(ZkClient.class);
-
-        doAnswer(invocationOnMock -> {
-            String key = invocationOnMock.getArgument(0);
-            String value = invocationOnMock.getArgument(1);
-            zookeeperBroker.put(key, value);
-            ephemeralNode.add(key);
-            return true;
-        }).when(zkClient).createEphemeral(anyString(), any(Object.class));
-
-        doAnswer(invocationOnMock -> {
-            String key = invocationOnMock.getArgument(0);
-            String value = invocationOnMock.getArgument(1);
-            zookeeperBroker.put(key, value);
-            return true;
-        }).when(zkClient).createPersistent(any(), any());
-
-        doAnswer(invocationOnMock -> {
-            String key = invocationOnMock.getArgument(0);
-            String value = invocationOnMock.getArgument(1);
-            zookeeperBroker.put(key, value);
-            return true;
-        }).when(zkClient).writeData(any(), any());
-
-        doAnswer(invocationOnMock -> {
-            String node = invocationOnMock.getArgument(0);
-            return zookeeperBroker.containsKey(node);
-        }).when(zkClient).exists(anyString());
-
-        doAnswer(invocationOnMock -> {
-            ephemeralNode.forEach(zookeeperBroker::remove);
-            return true;
-        }).when(zkClient).close();
-
-        return zkClient;
-    }
-
     @Test
-    public void testPersistInterface() {
-        MetaDataRegisterDTO data = MetaDataRegisterDTO.builder()
-                .rpcType("http")
-                .host("host")
-                .port(80)
-                .contextPath("/context")
-                .ruleName("ruleName")
-                .build();
-        repository.persistInterface(data);
-        String metadataPath = "/shenyu/register/metadata/http/context/context-ruleName";
-        Assert.assertTrue(zookeeperBroker.containsKey(metadataPath));
-        Assert.assertEquals(zookeeperBroker.get(metadataPath), GsonUtils.getInstance().toJson(data));
-        repository.close();
-    }
-    
-    @Test
-    public void testPersistUri() {
-        URIRegisterDTO data = URIRegisterDTO.builder()
-                .rpcType("http")
-                .host("host")
-                .port(80)
-                .appName("/context")
-                .build();
-        repository.persistURI(data);
-        String uriPath = "/shenyu/register/uri/http/context/host:80";
-        Assert.assertTrue(zookeeperBroker.containsKey(uriPath));
-        Assert.assertEquals(zookeeperBroker.get(uriPath), GsonUtils.getInstance().toJson(data));
-        repository.close();
-    }
+    public void testZookeeperInstanceRegisterRepository() {
+        final Listenable listenable = mock(Listenable.class);
+        try (MockedConstruction<ZookeeperClient> construction = mockConstruction(ZookeeperClient.class, (mock, context) -> {
+            final CuratorFramework curatorFramework = mock(CuratorFramework.class);
+            when(mock.getClient()).thenReturn(curatorFramework);
+            when(curatorFramework.getConnectionStateListenable()).thenReturn(listenable);
+        })) {
+            ShenyuRegisterCenterConfig config = new ShenyuRegisterCenterConfig();
+            final ZookeeperClientRegisterRepository repository = new ZookeeperClientRegisterRepository(config);
+            final Properties configProps = config.getProps();
+            configProps.setProperty("digest", "digest");
+            List<ConnectionStateListener> connectionStateListeners = new ArrayList<>();
+            doAnswer(invocationOnMock -> {
+                connectionStateListeners.add(invocationOnMock.getArgument(0));
+                return null;
+            }).when(listenable).addListener(any());
+            repository.init(config);
 
-    @Test
-    public void testPersistInterfaceDoAnswerWriteData4Grpc() {
-        ZkClient zkClient = mock(ZkClient.class);
-        when(zkClient.exists(anyString())).thenReturn(true);
-        final MetaDataRegisterDTO data = MetaDataRegisterDTO.builder()
-                .rpcType(RpcTypeEnum.GRPC.getName())
-                .host("host")
-                .port(80)
-                .contextPath("/context")
-                .ruleName("ruleName")
-                .serviceName("testService")
-                .methodName("testMethod")
-                .build();
-        repository.persistInterface(data);
-        String metadataPath = "/shenyu/register/metadata/grpc/context/testService.testMethod";
-        Assert.assertTrue(zookeeperBroker.containsKey(metadataPath));
-        Assert.assertEquals(zookeeperBroker.get(metadataPath), GsonUtils.getInstance().toJson(data));
-        repository.close();
+            repository.persistInterface(MetaDataRegisterDTO.builder().appName("mockServer").contextPath("/mock")
+                    .ruleName("/rule").host("127.0.0.1").rpcType(RpcTypeEnum.HTTP.getName()).build());
+
+            repository.persistInterface(MetaDataRegisterDTO.builder().appName("mockServer").contextPath("/mock")
+                    .ruleName("/rule").host("127.0.0.1").rpcType(RpcTypeEnum.SPRING_CLOUD.getName()).build());
+
+            repository.persistInterface(MetaDataRegisterDTO.builder().appName("mockServer").contextPath("/mock")
+                    .ruleName("/rule").host("127.0.0.1").rpcType(RpcTypeEnum.TARS.getName()).build());
+
+            repository.persistURI(URIRegisterDTO.builder().protocol("http://").appName("test1")
+                    .rpcType(RpcTypeEnum.HTTP.getName()).host("localhost").port(8091).build());
+            connectionStateListeners.forEach(connectionStateListener -> {
+                connectionStateListener.stateChanged(null, ConnectionState.RECONNECTED);
+            });
+            Assertions.assertDoesNotThrow(() -> new ZookeeperClientRegisterRepository());
+            repository.closeRepository();
+        }
     }
 }

@@ -17,26 +17,17 @@
 
 package org.apache.shenyu.plugin.httpclient;
 
-import io.netty.handler.codec.http.DefaultHttpHeaders;
 import io.netty.handler.codec.http.HttpMethod;
+import java.util.Objects;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.shenyu.common.constant.Constants;
 import org.apache.shenyu.common.enums.PluginEnum;
-import org.apache.shenyu.plugin.api.ShenyuPlugin;
-import org.apache.shenyu.plugin.api.ShenyuPluginChain;
-import org.apache.shenyu.plugin.api.context.ShenyuContext;
-import org.apache.shenyu.plugin.api.result.ShenyuResultEnum;
-import org.apache.shenyu.plugin.api.result.ShenyuResultWrap;
-import org.apache.shenyu.plugin.api.utils.WebFluxResultUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.NettyDataBuffer;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.AbstractServerHttpResponse;
-import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
-import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -44,20 +35,13 @@ import reactor.netty.http.client.HttpClient;
 import reactor.netty.http.client.HttpClientResponse;
 
 import java.net.URI;
-import java.time.Duration;
-import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.TimeoutException;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import java.util.function.Consumer;
 
 /**
  * The type Netty http client plugin.
  */
-public class NettyHttpClientPlugin implements ShenyuPlugin {
-
-    private static final Logger LOG = LoggerFactory.getLogger(NettyHttpClientPlugin.class);
+public class NettyHttpClientPlugin extends AbstractHttpClientPlugin<HttpClientResponse> {
 
     private final HttpClient httpClient;
 
@@ -71,30 +55,11 @@ public class NettyHttpClientPlugin implements ShenyuPlugin {
     }
 
     @Override
-    public Mono<Void> execute(final ServerWebExchange exchange, final ShenyuPluginChain chain) {
-        final ShenyuContext shenyuContext = exchange.getAttribute(Constants.CONTEXT);
-        assert shenyuContext != null;
-        ServerHttpRequest request = exchange.getRequest();
-        final HttpMethod method = HttpMethod.valueOf(request.getMethodValue());
-        HttpHeaders filtered = request.getHeaders();
-        final DefaultHttpHeaders httpHeaders = new DefaultHttpHeaders();
-        filtered.forEach(httpHeaders::set);
-        // remove gzip
-        String acceptEncoding = httpHeaders.get(HttpHeaders.ACCEPT_ENCODING);
-        if (StringUtils.isNotBlank(acceptEncoding)) {
-            List<String> acceptEncodings = Stream.of(acceptEncoding.trim().split(",")).collect(Collectors.toList());
-            acceptEncodings.remove(Constants.HTTP_ACCEPT_ENCODING_GZIP);
-            httpHeaders.set(HttpHeaders.ACCEPT_ENCODING, String.join(",", acceptEncodings));
-        }
-        URI uri = exchange.getAttribute(Constants.HTTP_URI);
-        if (Objects.isNull(uri)) {
-            Object error = ShenyuResultWrap.error(ShenyuResultEnum.CANNOT_FIND_URL.getCode(), ShenyuResultEnum.CANNOT_FIND_URL.getMsg(), null);
-            return WebFluxResultUtils.result(exchange, error);
-        }
-        LOG.info("you request, The resulting urlPath is: {}", uri.toASCIIString());
-        Flux<HttpClientResponse> responseFlux = this.httpClient.headers(headers -> headers.add(httpHeaders))
-                .request(method).uri(uri.toASCIIString()).send((req, nettyOutbound) ->
-                        nettyOutbound.send(request.getBody().map(dataBuffer -> ((NettyDataBuffer) dataBuffer) .getNativeBuffer())))
+    protected Mono<HttpClientResponse> doRequest(final ServerWebExchange exchange, final String httpMethod, final URI uri,
+                                final HttpHeaders httpHeaders, final Flux<DataBuffer> body) {
+        return Mono.from(httpClient.headers(headers -> httpHeaders.forEach(headers::add))
+                .request(HttpMethod.valueOf(httpMethod)).uri(uri.toASCIIString())
+                .send((req, nettyOutbound) -> nettyOutbound.send(body.map(dataBuffer -> ((NettyDataBuffer) dataBuffer).getNativeBuffer())))
                 .responseConnection((res, connection) -> {
                     exchange.getAttributes().put(Constants.CLIENT_RESPONSE_ATTR, res);
                     exchange.getAttributes().put(Constants.CLIENT_RESPONSE_CONN_ATTR, connection);
@@ -106,24 +71,19 @@ public class NettyHttpClientPlugin implements ShenyuPlugin {
                         exchange.getAttributes().put(Constants.ORIGINAL_RESPONSE_CONTENT_TYPE_ATTR, contentTypeValue);
                     }
                     HttpStatus status = HttpStatus.resolve(res.status().code());
-                    if (status != null) {
+                    if (Objects.nonNull(status)) {
                         response.setStatusCode(status);
                     } else if (response instanceof AbstractServerHttpResponse) {
-                        ((AbstractServerHttpResponse) response)
-                                .setStatusCodeValue(res.status().code());
+                        response.setRawStatusCode(res.status().code());
                     } else {
                         throw new IllegalStateException("Unable to set status code on response: " + res.status().code() + ", " + response.getClass());
                     }
                     response.getHeaders().putAll(headers);
-
+                    // watcher httpStatus
+                    final Consumer<HttpStatus> consumer = exchange.getAttribute(Constants.WATCHER_HTTP_STATUS);
+                    Optional.ofNullable(consumer).ifPresent(c -> c.accept(response.getStatusCode()));
                     return Mono.just(res);
-                });
-        long timeout = (long) Optional.ofNullable(exchange.getAttribute(Constants.HTTP_TIME_OUT)).orElse(3000L);
-        Duration duration = Duration.ofMillis(timeout);
-        responseFlux = responseFlux.timeout(duration,
-                Mono.error(new TimeoutException("Response took longer than timeout: " + duration)))
-                .onErrorMap(TimeoutException.class, th -> new ResponseStatusException(HttpStatus.GATEWAY_TIMEOUT, th.getMessage(), th));
-        return responseFlux.then(chain.execute(exchange));
+                }));
     }
 
     @Override

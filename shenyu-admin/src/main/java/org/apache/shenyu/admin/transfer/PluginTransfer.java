@@ -20,6 +20,7 @@ package org.apache.shenyu.admin.transfer;
 import org.apache.shenyu.admin.model.entity.PluginDO;
 import org.apache.shenyu.admin.model.vo.PluginVO;
 import org.apache.shenyu.common.dto.PluginData;
+import org.springframework.util.Base64Utils;
 
 import java.util.Optional;
 
@@ -47,6 +48,8 @@ public enum PluginTransfer {
                         .config(v.getConfig())
                         .role(v.getRole())
                         .enabled(v.getEnabled())
+                        .sort(v.getSort())
+                        .pluginJar(Optional.ofNullable(v.getPluginJar()).map(Base64Utils::encodeToString).orElse(""))
                         .build())
                 .orElse(null);
     }
@@ -65,6 +68,7 @@ public enum PluginTransfer {
                         .config(v.getConfig())
                         .role(v.getRole())
                         .enabled(v.getEnabled())
+                        .sort(v.getSort())
                         .build())
                 .orElse(null);
     }

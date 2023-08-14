@@ -21,25 +21,29 @@ import org.apache.shenyu.plugin.api.ShenyuPlugin;
 import org.apache.shenyu.plugin.base.handler.PluginDataHandler;
 import org.apache.shenyu.plugin.cryptor.handler.CryptorRequestPluginDataHandler;
 import org.apache.shenyu.plugin.cryptor.handler.CryptorResponsePluginDataHandler;
-import org.apache.shenyu.plugin.cryptor.request.CryptorRequestPlugin;
-import org.apache.shenyu.plugin.cryptor.response.CryptorResponsePlugin;
+import org.apache.shenyu.plugin.cryptor.plugin.CryptorRequestPlugin;
+import org.apache.shenyu.plugin.cryptor.plugin.CryptorResponsePlugin;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.codec.ServerCodecConfigurer;
 
 /**
  *  Cryptor plugin.
  */
 @Configuration
+@ConditionalOnProperty(value = {"shenyu.plugins.cryptor.enabled"}, havingValue = "true", matchIfMissing = true)
 public class CryptorPluginConfiguration {
 
     /**
      * Cryptor request plugin.
      *
+     * @param configurer configurer
      * @return the shenyu plugin
      */
     @Bean
-    public ShenyuPlugin cryptorRequestPlugin() {
-        return new CryptorRequestPlugin();
+    public ShenyuPlugin cryptorRequestPlugin(final ServerCodecConfigurer configurer) {
+        return new CryptorRequestPlugin(configurer.getReaders());
     }
 
     /**
@@ -53,7 +57,7 @@ public class CryptorPluginConfiguration {
     }
 
     /**
-     * Cryptor request plugin data handler plugin data handler.
+     * Cryptor request plugin data handler.
      *
      * @return the plugin data handler
      */
@@ -63,7 +67,7 @@ public class CryptorPluginConfiguration {
     }
 
     /**
-     * Cryptor response plugin data handler plugin data handler.
+     * Cryptor response plugin data handler.
      *
      * @return the plugin data handler
      */

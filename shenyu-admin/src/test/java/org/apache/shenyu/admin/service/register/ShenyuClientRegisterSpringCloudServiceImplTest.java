@@ -16,9 +16,10 @@
  */
     
 package org.apache.shenyu.admin.service.register;
-    
+
 import org.apache.shenyu.admin.model.entity.MetaDataDO;
 import org.apache.shenyu.admin.model.entity.SelectorDO;
+import org.apache.shenyu.admin.service.converter.SpringCloudSelectorHandleConverter;
 import org.apache.shenyu.admin.service.impl.MetaDataServiceImpl;
 import org.apache.shenyu.common.dto.convert.rule.impl.SpringCloudRuleHandle;
 import org.apache.shenyu.common.dto.convert.selector.SpringCloudSelectorHandle;
@@ -26,19 +27,22 @@ import org.apache.shenyu.common.enums.RpcTypeEnum;
 import org.apache.shenyu.common.utils.GsonUtils;
 import org.apache.shenyu.register.common.dto.MetaDataRegisterDTO;
 import org.apache.shenyu.register.common.dto.URIRegisterDTO;
-import org.junit.Assert;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnitRunner;
-    
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+import org.springframework.test.util.ReflectionTestUtils;
+
 import java.util.ArrayList;
 import java.util.List;
-    
-import static org.junit.Assert.assertEquals;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
@@ -47,7 +51,8 @@ import static org.mockito.Mockito.when;
 /**
  * Test cases for {@link ShenyuClientRegisterSpringCloudServiceImpl}.
  */
-@RunWith(MockitoJUnitRunner.Silent.class)
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 public final class ShenyuClientRegisterSpringCloudServiceImplTest {
     
     public static final String HOST = "localhost";
@@ -57,31 +62,37 @@ public final class ShenyuClientRegisterSpringCloudServiceImplTest {
     
     @Mock
     private MetaDataServiceImpl metaDataService;
-    
+
+    @BeforeEach
+    public void setUp() {
+        SpringCloudSelectorHandleConverter springCloudSelectorHandleConverter = new SpringCloudSelectorHandleConverter();
+        ReflectionTestUtils.setField(shenyuClientRegisterSpringCloudService, "springCloudSelectorHandleConverter", springCloudSelectorHandleConverter);
+    }
+
     @Test
     public void testRpcType() {
-        Assert.assertEquals(RpcTypeEnum.SPRING_CLOUD.getName(), shenyuClientRegisterSpringCloudService.rpcType());
+        assertEquals(RpcTypeEnum.SPRING_CLOUD.getName(), shenyuClientRegisterSpringCloudService.rpcType());
     }
     
     @Test
     public void testSelectorHandler() {
         MetaDataRegisterDTO metaDataRegisterDTO = MetaDataRegisterDTO.builder().appName("testSelectorHandler").build();
-        Assert.assertEquals("{\"serviceId\":\"testSelectorHandler\",\"gray\":false}", 
+        assertEquals("{\"serviceId\":\"testSelectorHandler\",\"gray\":false}", 
                 shenyuClientRegisterSpringCloudService.selectorHandler(metaDataRegisterDTO));
     }
     
     @Test
     public void testRuleHandler() {
-        Assert.assertEquals(new SpringCloudRuleHandle().toJson(), shenyuClientRegisterSpringCloudService.ruleHandler());
+        assertEquals(new SpringCloudRuleHandle().toJson(), shenyuClientRegisterSpringCloudService.ruleHandler());
     }
     
     @Test
     public void testRegisterMetadata() {
         MetaDataDO metaDataDO = MetaDataDO.builder().build();
         when(metaDataService.findByPath(any())).thenReturn(metaDataDO);
-        MetaDataRegisterDTO metaDataDTO = MetaDataRegisterDTO.builder().contextPath("/contextPath").build();
+        MetaDataRegisterDTO metaDataDTO = MetaDataRegisterDTO.builder().path("/contextPath/test").build();
         shenyuClientRegisterSpringCloudService.registerMetadata(metaDataDTO);
-        verify(metaDataService).findByPath("/contextPath/**");
+        verify(metaDataService).findByPath("/contextPath/test");
         verify(metaDataService).saveOrUpdateMetaData(metaDataDO, metaDataDTO);
     }
     
@@ -103,27 +114,27 @@ public final class ShenyuClientRegisterSpringCloudServiceImplTest {
         List<URIRegisterDTO> list = new ArrayList<>();
         list.add(dto1);
         SelectorDO selectorDO = mock(SelectorDO.class);
-        doNothing().when(shenyuClientRegisterSpringCloudService).doSubmit(any(), any());
+        doReturn(false).when(shenyuClientRegisterSpringCloudService).doSubmit(any(), any());
         when(selectorDO.getHandle()).thenReturn(returnStr);
         String actual = shenyuClientRegisterSpringCloudService.buildHandle(list, selectorDO);
         assertEquals(expected, actual);
         SpringCloudSelectorHandle handle = GsonUtils.getInstance().fromJson(actual, SpringCloudSelectorHandle.class);
         assertEquals(handle.getDivideUpstreams().size(), 1);
-        
+
         list.clear();
         list.add(dto1);
         list.add(dto2);
         selectorDO = mock(SelectorDO.class);
-        doNothing().when(shenyuClientRegisterSpringCloudService).doSubmit(any(), any());
+        doReturn(false).when(shenyuClientRegisterSpringCloudService).doSubmit(any(), any());
         when(selectorDO.getHandle()).thenReturn(returnStr);
         actual = shenyuClientRegisterSpringCloudService.buildHandle(list, selectorDO);
         handle = GsonUtils.getInstance().fromJson(actual, SpringCloudSelectorHandle.class);
         assertEquals(handle.getDivideUpstreams().size(), 2);
-        
+
         list.clear();
         list.add(dto1);
         selectorDO = mock(SelectorDO.class);
-        doNothing().when(shenyuClientRegisterSpringCloudService).doSubmit(any(), any());
+        doReturn(false).when(shenyuClientRegisterSpringCloudService).doSubmit(any(), any());
         when(selectorDO.getHandle()).thenReturn("{serviceId:'test1',gray:false,divideUpstreams:[]}");
         actual = shenyuClientRegisterSpringCloudService.buildHandle(list, selectorDO);
         handle = GsonUtils.getInstance().fromJson(actual, SpringCloudSelectorHandle.class);

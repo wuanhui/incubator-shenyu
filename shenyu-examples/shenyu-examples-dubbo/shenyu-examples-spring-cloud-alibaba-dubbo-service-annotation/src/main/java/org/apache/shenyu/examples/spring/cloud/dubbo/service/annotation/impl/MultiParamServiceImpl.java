@@ -18,6 +18,8 @@
 package org.apache.shenyu.examples.spring.cloud.dubbo.service.annotation.impl;
 
 import org.apache.dubbo.config.annotation.DubboService;
+import org.apache.shenyu.client.apidocs.annotations.ApiDoc;
+import org.apache.shenyu.client.apidocs.annotations.ApiModule;
 import org.apache.shenyu.client.dubbo.common.annotation.ShenyuDubboClient;
 import org.apache.shenyu.examples.dubbo.api.entity.ComplexBeanTest;
 import org.apache.shenyu.examples.dubbo.api.entity.DubboTest;
@@ -33,55 +35,64 @@ import java.util.stream.Collectors;
  * The type Dubbo multi param service.
  */
 @DubboService
+@ApiModule(value = "dubboMultiParamService")
 public class MultiParamServiceImpl implements DubboMultiParamService {
     
     @Override
-    @ShenyuDubboClient(path = "/findByIdsAndName", desc = "findByIdsAndName")
+    @ShenyuDubboClient("/findByIdsAndName")
+    @ApiDoc(desc = "findByIdsAndName")
     public DubboTest findByIdsAndName(final List<Integer> ids, final String name) {
         return new DubboTest(ids.toString(), "hello world shenyu apache dubbo param findByIdsAndName ：" + name);
     }
     
     @Override
-    @ShenyuDubboClient(path = "/findByArrayIdsAndName", desc = "findByArrayIdsAndName")
+    @ShenyuDubboClient("/findByArrayIdsAndName")
+    @ApiDoc(desc = "findByArrayIdsAndName")
     public DubboTest findByArrayIdsAndName(final Integer[] ids, final String name) {
         return new DubboTest(Arrays.toString(ids), "hello world shenyu apache dubbo param findByArrayIdsAndName ：" + name);
     }
     
     @Override
-    @ShenyuDubboClient(path = "/findByStringArray", desc = "findByStringArray")
+    @ShenyuDubboClient("/findByStringArray")
+    @ApiDoc(desc = "findByStringArray")
     public DubboTest findByStringArray(final String[] ids) {
         return new DubboTest(Arrays.toString(ids), "hello world shenyu apache dubbo param findByStringArray");
     }
     
     @Override
-    @ShenyuDubboClient(path = "/findByListId", desc = "findByListId")
+    @ShenyuDubboClient("/findByListId")
+    @ApiDoc(desc = "findByListId")
     public DubboTest findByListId(final List<String> ids) {
         return new DubboTest(ids.toString(), "hello world shenyu apache dubbo param findByListId");
     }
     
     @Override
-    @ShenyuDubboClient(path = "/batchSave", desc = "batchSave")
+    @ShenyuDubboClient("/batchSave")
+    @ApiDoc(desc = "batchSave")
     public DubboTest batchSave(final List<DubboTest> dubboTestList) {
         return new DubboTest(join(dubboTestList, DubboTest::getId),
                 "hello world shenyu apache dubbo param batchSave :" + join(dubboTestList, DubboTest::getName));
     }
     
     @Override
-    @ShenyuDubboClient(path = "/batchSaveAndNameAndId", desc = "batchSaveAndNameAndId")
+    @ShenyuDubboClient("/batchSaveAndNameAndId")
+    @ApiDoc(desc = "batchSaveAndNameAndId")
     public DubboTest batchSaveAndNameAndId(final List<DubboTest> dubboTestList, final String id, final String name) {
         return new DubboTest(id, "hello world shenyu apache dubbo param batchSaveAndNameAndId :"
                 + name + ":" + join(dubboTestList, DubboTest::getName));
     }
     
     @Override
-    @ShenyuDubboClient(path = "/saveComplexBeanTest", desc = "saveComplexBeanTest")
+    @ShenyuDubboClient("/saveComplexBeanTest")
+    @ApiDoc(desc = "saveComplexBeanTest")
     public DubboTest saveComplexBeanTest(final ComplexBeanTest complexBeanTest) {
         return new DubboTest(complexBeanTest.getIdLists().toString(),
                 "hello world shenyu apache dubbo param saveComplexBeanTest :" + complexBeanTest.getDubboTest().getName());
     }
     
     @Override
-    @ShenyuDubboClient(path = "/saveComplexBeanTestAndName", desc = "saveComplexBeanTestAndName")
+    @ShenyuDubboClient("/saveComplexBeanTestAndName")
+    @ApiDoc(desc = "saveComplexBeanTestAndName")
     public DubboTest saveComplexBeanTestAndName(final ComplexBeanTest complexBeanTest, final String name) {
         return new DubboTest(complexBeanTest.getIdLists().toString(),
                 "hello world shenyu alibaba dubbo param saveComplexBeanTestAndName :" + complexBeanTest.getDubboTest().getName() + "-" + name);

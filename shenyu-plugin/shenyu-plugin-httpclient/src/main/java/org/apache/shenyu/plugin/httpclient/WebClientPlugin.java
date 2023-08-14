@@ -17,46 +17,31 @@
 
 package org.apache.shenyu.plugin.httpclient;
 
-import io.netty.channel.ConnectTimeoutException;
-import org.apache.commons.collections4.CollectionUtils;
 import org.apache.shenyu.common.constant.Constants;
 import org.apache.shenyu.common.enums.PluginEnum;
 import org.apache.shenyu.common.enums.ResultEnum;
-import org.apache.shenyu.plugin.api.ShenyuPlugin;
-import org.apache.shenyu.plugin.api.ShenyuPluginChain;
-import org.apache.shenyu.plugin.api.context.ShenyuContext;
-import org.apache.shenyu.plugin.api.result.ShenyuResultEnum;
-import org.apache.shenyu.plugin.api.result.ShenyuResultWrap;
-import org.apache.shenyu.plugin.api.utils.WebFluxResultUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.core.io.buffer.DataBufferFactory;
+import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.web.reactive.function.BodyInserters;
+import org.springframework.http.MediaType;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.server.ServerWebExchange;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.retry.Backoff;
-import reactor.retry.Retry;
 
 import java.net.URI;
-import java.time.Duration;
-import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * The type Web client plugin.
  */
-public class WebClientPlugin implements ShenyuPlugin {
-
-    private static final Logger LOG = LoggerFactory.getLogger(WebClientPlugin.class);
-
+public class WebClientPlugin extends AbstractHttpClientPlugin<ClientResponse> {
+    
     private final WebClient webClient;
-
+    
     /**
      * Instantiates a new Web client plugin.
      *
@@ -65,72 +50,65 @@ public class WebClientPlugin implements ShenyuPlugin {
     public WebClientPlugin(final WebClient webClient) {
         this.webClient = webClient;
     }
-
+    
     @Override
-    public Mono<Void> execute(final ServerWebExchange exchange, final ShenyuPluginChain chain) {
-        final ShenyuContext shenyuContext = exchange.getAttribute(Constants.CONTEXT);
-        assert shenyuContext != null;
-        URI uri = exchange.getAttribute(Constants.HTTP_URI);
-        if (Objects.isNull(uri)) {
-            Object error = ShenyuResultWrap.error(ShenyuResultEnum.CANNOT_FIND_URL.getCode(), ShenyuResultEnum.CANNOT_FIND_URL.getMsg(), null);
-            return WebFluxResultUtils.result(exchange, error);
-        }
-        long timeout = (long) Optional.ofNullable(exchange.getAttribute(Constants.HTTP_TIME_OUT)).orElse(3000L);
-        int retryTimes = (int) Optional.ofNullable(exchange.getAttribute(Constants.HTTP_RETRY)).orElse(0);
-        LOG.info("The request urlPath is {}, retryTimes is {}", uri.toASCIIString(), retryTimes);
-        HttpMethod method = HttpMethod.valueOf(exchange.getRequest().getMethodValue());
-        WebClient.RequestBodySpec requestBodySpec = webClient.method(method).uri(uri);
-        return handleRequestBody(requestBodySpec, exchange, timeout, retryTimes, chain);
+    protected Mono<ClientResponse> doRequest(final ServerWebExchange exchange, final String httpMethod, final URI uri,
+                                             final HttpHeaders httpHeaders, final Flux<DataBuffer> body) {
+        // springWebflux5.3 mark #exchange() deprecated. because #echange maybe make memory leak.
+        // https://github.com/spring-projects/spring-framework/issues/25751
+        // exchange is deprecated, so change to {@link WebClient.RequestHeadersSpec#exchangeToMono(Function)}
+        return webClient.method(HttpMethod.valueOf(httpMethod)).uri(uri)
+                .headers(headers -> headers.addAll(httpHeaders))
+                .body((outputMessage, context) -> {
+                    MediaType mediaType = httpHeaders.getContentType();
+                    if (MediaType.TEXT_EVENT_STREAM.isCompatibleWith(mediaType)
+                            || MediaType.MULTIPART_MIXED.isCompatibleWith(mediaType)
+                            || MediaType.IMAGE_PNG.isCompatibleWith(mediaType)
+                            || MediaType.IMAGE_JPEG.isCompatibleWith(mediaType)
+                            || MediaType.IMAGE_GIF.isCompatibleWith(mediaType)
+                            //APPLICATION_STREAM_JSON is deprecated
+                            || MediaType.APPLICATION_NDJSON.isCompatibleWith(mediaType)
+                            || MediaType.APPLICATION_PDF.isCompatibleWith(mediaType)
+                            || MediaType.APPLICATION_OCTET_STREAM.isCompatibleWith(mediaType)) {
+                        return outputMessage.writeWith(body);
+                    }
+                    // fix chinese garbled code
+                    return outputMessage.writeWith(DataBufferUtils.join(body));
+                })
+                .exchangeToMono(response -> response.bodyToMono(byte[].class)
+                        .flatMap(bytes -> Mono.fromCallable(() -> Optional.ofNullable(bytes))).defaultIfEmpty(Optional.empty())
+                        .flatMap(option -> {
+                            final ClientResponse.Builder builder = ClientResponse.create(response.statusCode())
+                                    .headers(headers -> headers.addAll(response.headers().asHttpHeaders()));
+                            if (option.isPresent()) {
+                                final DataBufferFactory dataBufferFactory = exchange.getResponse().bufferFactory();
+                                return Mono.just(builder.body(Flux.just(dataBufferFactory.wrap(option.get()))).build());
+                            }
+                            return Mono.just(builder.build());
+                        }))
+                .doOnSuccess(res -> {
+                    if (res.statusCode().is2xxSuccessful()) {
+                        exchange.getAttributes().put(Constants.CLIENT_RESPONSE_RESULT_TYPE, ResultEnum.SUCCESS.getName());
+                    } else {
+                        exchange.getAttributes().put(Constants.CLIENT_RESPONSE_RESULT_TYPE, ResultEnum.ERROR.getName());
+                    }
+                    exchange.getResponse().setStatusCode(res.statusCode());
+                    exchange.getAttributes().put(Constants.CLIENT_RESPONSE_ATTR, res);
+                });
     }
-
+    
     @Override
     public int getOrder() {
         return PluginEnum.WEB_CLIENT.getCode();
     }
-
+    
     @Override
     public String named() {
         return PluginEnum.WEB_CLIENT.getName();
     }
-
+    
     @Override
     public boolean skip(final ServerWebExchange exchange) {
         return skipExceptHttpLike(exchange);
-    }
-
-    private Mono<Void> handleRequestBody(final WebClient.RequestBodySpec requestBodySpec,
-                                         final ServerWebExchange exchange,
-                                         final long timeout,
-                                         final int retryTimes,
-                                         final ShenyuPluginChain chain) {
-        return requestBodySpec.headers(httpHeaders -> {
-            httpHeaders.addAll(exchange.getRequest().getHeaders());
-            // remove gzip
-            List<String> acceptEncoding = httpHeaders.get(HttpHeaders.ACCEPT_ENCODING);
-            if (CollectionUtils.isNotEmpty(acceptEncoding)) {
-                acceptEncoding = Stream.of(String.join(",", acceptEncoding).split(",")).collect(Collectors.toList());
-                acceptEncoding.remove(Constants.HTTP_ACCEPT_ENCODING_GZIP);
-                httpHeaders.set(HttpHeaders.ACCEPT_ENCODING, String.join(",", acceptEncoding));
-            }
-            httpHeaders.remove(HttpHeaders.HOST);
-        })
-                .body(BodyInserters.fromDataBuffers(exchange.getRequest().getBody()))
-                .exchange()
-                .doOnError(e -> LOG.error(e.getMessage(), e))
-                .timeout(Duration.ofMillis(timeout))
-                .retryWhen(Retry.onlyIf(x -> x.exception() instanceof ConnectTimeoutException)
-                        .retryMax(retryTimes)
-                        .backoff(Backoff.exponential(Duration.ofMillis(200), Duration.ofSeconds(20), 2, true)))
-                .flatMap(e -> doNext(e, exchange, chain));
-    }
-
-    private Mono<Void> doNext(final ClientResponse res, final ServerWebExchange exchange, final ShenyuPluginChain chain) {
-        if (res.statusCode().is2xxSuccessful()) {
-            exchange.getAttributes().put(Constants.CLIENT_RESPONSE_RESULT_TYPE, ResultEnum.SUCCESS.getName());
-        } else {
-            exchange.getAttributes().put(Constants.CLIENT_RESPONSE_RESULT_TYPE, ResultEnum.ERROR.getName());
-        }
-        exchange.getAttributes().put(Constants.CLIENT_RESPONSE_ATTR, res);
-        return chain.execute(exchange);
     }
 }

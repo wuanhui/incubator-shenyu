@@ -22,18 +22,27 @@ import com.google.protobuf.DynamicMessage;
 import io.grpc.MethodDescriptor;
 import org.apache.shenyu.common.utils.GsonUtils;
 import org.apache.shenyu.protocol.grpc.constant.GrpcConstants;
-import org.junit.Assert;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.MockedStatic;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
@@ -41,7 +50,7 @@ import static org.mockito.Mockito.mock;
 /**
  * The Test Case For {@link JsonMessage}.
  */
-@RunWith(MockitoJUnitRunner.class)
+@ExtendWith(MockitoExtension.class)
 public class JsonMessageTest {
 
     @Test
@@ -98,6 +107,21 @@ public class JsonMessageTest {
         DynamicMessage jsonMessage = JsonMessage.buildJsonMessage(jsonParam);
         String data = JsonMessage.getDataFromDynamicMessage(jsonMessage);
         assertEquals(jsonParam, data);
+        final DynamicMessage dynamicMessageMock = mock(DynamicMessage.class);
+        final Map<Descriptors.FieldDescriptor, Object> hashMap = new HashMap<>(1);
+        hashMap.put(mock(Descriptors.FieldDescriptor.class), "data");
+        when(dynamicMessageMock.getAllFields()).thenReturn(hashMap);
+        final String dataFromDynamicMessage = JsonMessage.getDataFromDynamicMessage(dynamicMessageMock);
+        assertEquals(dataFromDynamicMessage, "");
+
+        DynamicMessage jsonMessage2 = JsonMessage.buildJsonMessage();
+        String data2 = JsonMessage.getDataFromDynamicMessage(jsonMessage2);
+        assertEquals(data2, "");
+
+        try (MockedStatic<Descriptors.FileDescriptor> descriptorMockedStatic = mockStatic(Descriptors.FileDescriptor.class)) {
+            descriptorMockedStatic.when(() -> Descriptors.FileDescriptor.buildFrom(any(), any(Descriptors.FileDescriptor[].class))).thenThrow(Descriptors.DescriptorValidationException.class);
+            assertThrows(RuntimeException.class, () -> JsonMessage.buildJsonMessage());
+        }
     }
 
     @Test
@@ -116,7 +140,18 @@ public class JsonMessageTest {
     }
 
     @Test
-    public void testParseOfDynamicMessageMarshaller() {
+    public void getMethodTypeTest() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+        final Method getMethodType = JsonMessage.class.getDeclaredMethod("getMethodType", MethodDescriptor.MethodType.class);
+        getMethodType.setAccessible(true);
+        assertEquals(MethodDescriptor.MethodType.UNARY, getMethodType.invoke(null, MethodDescriptor.MethodType.UNARY));
+        assertEquals(MethodDescriptor.MethodType.CLIENT_STREAMING, getMethodType.invoke(null, MethodDescriptor.MethodType.CLIENT_STREAMING));
+        assertEquals(MethodDescriptor.MethodType.SERVER_STREAMING, getMethodType.invoke(null, MethodDescriptor.MethodType.SERVER_STREAMING));
+        assertEquals(MethodDescriptor.MethodType.BIDI_STREAMING, getMethodType.invoke(null, MethodDescriptor.MethodType.BIDI_STREAMING));
+        assertEquals(MethodDescriptor.MethodType.UNKNOWN, getMethodType.invoke(null, MethodDescriptor.MethodType.UNKNOWN));
+    }
+
+    @Test
+    public void testParseOfDynamicMessageMarshaller() throws IOException {
         String jsonParam = "{\"text\":\"hello world\"}";
         DynamicMessage jsonMessage = JsonMessage.buildJsonMessage(jsonParam);
         MethodDescriptor<DynamicMessage, DynamicMessage> echo = JsonMessage.createJsonMarshallerMethodDescriptor("echo.service",
@@ -129,6 +164,10 @@ public class JsonMessageTest {
 
         InputStream inputStream = new ByteArrayInputStream("".getBytes());
         requestMarshaller.parse(inputStream);
+
+        final InputStream mockInputStream = mock(InputStream.class);
+        when(mockInputStream.read(any(byte[].class), anyInt(), anyInt())).thenThrow(IOException.class);
+        assertThrows(RuntimeException.class, () -> requestMarshaller.parse(mockInputStream));
     }
 
     @Test
@@ -148,6 +187,6 @@ public class JsonMessageTest {
         MethodDescriptor.Marshaller<DynamicMessage> requestMarshaller = echo.getRequestMarshaller();
 
         InputStream actualInputStream = requestMarshaller.stream(dynamicMessage);
-        Assert.assertEquals(inputStream, actualInputStream);
+        assertEquals(inputStream, actualInputStream);
     }
 }

@@ -22,7 +22,7 @@ import org.apache.shenyu.admin.model.entity.SelectorDO;
 import org.apache.shenyu.admin.model.page.PageParameter;
 import org.apache.shenyu.admin.model.query.SelectorQuery;
 import org.apache.shenyu.common.utils.UUIDUtils;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import javax.annotation.Resource;
 import java.sql.Timestamp;
@@ -32,9 +32,9 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.hamcrest.Matchers.hasItems;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 
 /**
@@ -114,10 +114,10 @@ public final class SelectorMapperTest extends AbstractSpringIntegrationTest {
         SelectorDO selectorDO = buildSelectorDO();
         int insert = selectorMapper.insert(selectorDO);
         assertEquals(1, insert);
-
-        SelectorDO selector = selectorMapper.selectByName(selectorDO.getName());
-        assertNotNull(selector);
-        assertEquals(selectorDO.getName(), selector.getName());
+        List<SelectorDO> doList = selectorMapper.selectByName(selectorDO.getName());
+        assertEquals(doList.size(), 1);
+        assertNotNull(doList.get(0));
+        assertEquals(selectorDO.getName(), doList.get(0).getName());
 
         int delete = selectorMapper.delete(selectorDO.getId());
         assertEquals(1, delete);
@@ -234,6 +234,7 @@ public final class SelectorMapperTest extends AbstractSpringIntegrationTest {
                 .sort(1)
                 .enabled(Boolean.TRUE)
                 .loged(Boolean.TRUE)
+                .matchRestful(false)
                 .continued(Boolean.TRUE)
                 .handle("handle")
                 .build();

@@ -62,7 +62,7 @@ public class JsonServerCallListener<R, P> extends ForwardingServerCallListener<R
         Message.Builder builder;
         Class<?> t = JsonServerServiceInterceptor.getRequestClazzMap().get(call.getMethodDescriptor().getFullMethodName());
         try {
-            builder = (Message.Builder) ReflectUtils.invokeMethod(t, "newBuilder");
+            builder = (Message.Builder) ReflectUtils.invokeStaticMethod(t, "newBuilder");
 
             String reqData = JsonMessage.getDataFromDynamicMessage((DynamicMessage) message);
             JsonFormat.parser().ignoringUnknownFields().merge(reqData, builder);
@@ -72,7 +72,6 @@ public class JsonServerCallListener<R, P> extends ForwardingServerCallListener<R
 
             delegate.onMessage((R) builder.build());
         } catch (Exception e) {
-            LOG.error("handle json generic request is error", e);
             throw Status.INTERNAL.withDescription(e.getMessage()).asRuntimeException();
         }
     }

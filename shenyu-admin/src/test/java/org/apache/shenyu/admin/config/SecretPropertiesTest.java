@@ -19,7 +19,7 @@ package org.apache.shenyu.admin.config;
 
 import org.apache.shenyu.admin.AbstractConfigurationTest;
 import org.apache.shenyu.admin.config.properties.SecretProperties;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Assertions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,9 +42,11 @@ public final class SecretPropertiesTest extends AbstractConfigurationTest {
         if (LOG.isDebugEnabled()) {
             LOG.debug("RandomKey is: " + randomKey);
         }
-        load(SecretPropertiesConfiguration.class, "shenyu.aes.secret.key=" + randomKey);
+        load(SecretPropertiesConfiguration.class, "shenyu.aes.secret.key=" + randomKey,
+                "shenyu.aes.secret.iv=" + randomKey);
         SecretProperties secretProperties = getContext().getBean(SecretProperties.class);
         Assertions.assertEquals(secretProperties.getKey(), randomKey);
+        Assertions.assertEquals(secretProperties.getIv(), randomKey);
     }
     
     @Configuration

@@ -20,11 +20,12 @@ package org.apache.shenyu.admin.config;
 import org.apache.shenyu.admin.AbstractConfigurationTest;
 
 import org.apache.shenyu.admin.config.properties.NacosProperties;
-import org.junit.Test;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
+import org.junit.jupiter.api.Test;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 /**
  * Test cases for NacosProperties.
@@ -35,9 +36,13 @@ public final class NacosPropertiesTest extends AbstractConfigurationTest {
     public void testNacosPropertiesDefault() {
         load(NacosPropertiesTest.NacosPropertiesConfiguration.class);
         NacosProperties nacosProperties = getContext().getBean(NacosProperties.class);
+        nacosProperties.setPassword("password");
+        nacosProperties.setUsername("username");
         assertNull(nacosProperties.getUrl());
         assertNull(nacosProperties.getNamespace());
         assertNull(nacosProperties.getAcm());
+        assertEquals(nacosProperties.getPassword(), "password");
+        assertEquals(nacosProperties.getUsername(), "username");
     }
 
     @Test
@@ -47,7 +52,12 @@ public final class NacosPropertiesTest extends AbstractConfigurationTest {
         NacosProperties.NacosACMProperties acm = new NacosProperties.NacosACMProperties();
         acm.setEnabled(false);
         acm.setEndpoint("acm.aliyun.com");
-
+        acm.setAccessKey("accessKey");
+        acm.setNamespace("namespace");
+        acm.setSecretKey("secretKey");
+        assertEquals(acm.getAccessKey(), "accessKey");
+        assertEquals(acm.getNamespace(), "namespace");
+        assertEquals(acm.getSecretKey(), "secretKey");
         load(NacosPropertiesTest.NacosPropertiesConfiguration.class, "shenyu.sync.nacos.url=localhost:8848",
                 "shenyu.sync.nacos.namespace=1c10d748-af86-43b9-8265-75f487d20c6c",
                 "shenyu.sync.nacos.acm.enabled=false",

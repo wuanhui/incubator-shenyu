@@ -17,7 +17,15 @@
 
 package org.apache.shenyu.admin.model.dto;
 
+import org.apache.shenyu.admin.mapper.PluginMapper;
+import org.apache.shenyu.admin.mapper.SelectorMapper;
+import org.apache.shenyu.admin.validation.annotation.Existed;
+import org.hibernate.validator.constraints.Range;
+
 import javax.validation.Valid;
+import javax.validation.constraints.Max;
+import javax.validation.constraints.Min;
+import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 import java.io.Serializable;
 import java.util.List;
@@ -27,74 +35,85 @@ import java.util.Objects;
  * this is selector from by web front.
  */
 public final class SelectorDTO implements Serializable {
-
+    
     private static final long serialVersionUID = -4979839188302702999L;
-
+    
     /**
      * primary key.
      */
+    @Existed(provider = SelectorMapper.class, nullOfIgnore = true, message = "selector is not existed")
     private String id;
-
+    
     /**
      * plugin id.
      */
-    @NotNull
+    @NotBlank
+    @Existed(provider = PluginMapper.class, message = "plugin is not existed")
     private String pluginId;
-
+    
     /**
      * selector name.
      */
-    @NotNull
+    @NotBlank
     private String name;
-
+    
     /**
-     * match mode.
+     * match mode. 0 and 1 or
      */
     private Integer matchMode;
-
+    
     /**
      * selector type.
      */
     @NotNull
+    @Min(value = 0)
+    @Max(value = 1)
     private Integer type;
-
+    
     /**
      * sort type.
      */
     @NotNull
+    @Range(min = 1, max = 1000)
     private Integer sort;
-
+    
     /**
      * whether enabled.
      */
     @NotNull
     private Boolean enabled;
-
+    
     /**
      * whether loged.
      */
+    @NotNull
     private Boolean loged;
-
+    
     /**
      * whether continued.
      */
     @NotNull
     private Boolean continued;
-
+    
+    /**
+     * handle.
+     */
     private String handle;
-
+    
     /**
      * selector conditions.
      */
-    @Valid
     private List<SelectorConditionDTO> selectorConditions;
-
+    
+    @NotNull
+    private Boolean matchRestful;
+    
     public SelectorDTO() {
     }
-
+    
     public SelectorDTO(final String id,
-                       @NotNull final String pluginId,
-                       @NotNull final String name,
+                       @NotBlank final String pluginId,
+                       @NotBlank final String name,
                        final Integer matchMode,
                        @NotNull final Integer type,
                        @NotNull final Integer sort,
@@ -102,7 +121,8 @@ public final class SelectorDTO implements Serializable {
                        final Boolean loged,
                        @NotNull final Boolean continued,
                        final String handle,
-                       @Valid final List<SelectorConditionDTO> selectorConditions) {
+                       @Valid final List<SelectorConditionDTO> selectorConditions,
+                       @NotNull final Boolean matchRestful) {
         this.id = id;
         this.pluginId = pluginId;
         this.name = name;
@@ -114,8 +134,9 @@ public final class SelectorDTO implements Serializable {
         this.continued = continued;
         this.handle = handle;
         this.selectorConditions = selectorConditions;
+        this.matchRestful = matchRestful;
     }
-
+    
     /**
      * Gets the value of id.
      *
@@ -124,7 +145,7 @@ public final class SelectorDTO implements Serializable {
     public String getId() {
         return id;
     }
-
+    
     /**
      * Sets the id.
      *
@@ -133,7 +154,7 @@ public final class SelectorDTO implements Serializable {
     public void setId(final String id) {
         this.id = id;
     }
-
+    
     /**
      * Gets the value of pluginId.
      *
@@ -142,7 +163,7 @@ public final class SelectorDTO implements Serializable {
     public String getPluginId() {
         return pluginId;
     }
-
+    
     /**
      * Sets the pluginId.
      *
@@ -151,7 +172,7 @@ public final class SelectorDTO implements Serializable {
     public void setPluginId(final String pluginId) {
         this.pluginId = pluginId;
     }
-
+    
     /**
      * Gets the value of name.
      *
@@ -160,7 +181,7 @@ public final class SelectorDTO implements Serializable {
     public String getName() {
         return name;
     }
-
+    
     /**
      * Sets the name.
      *
@@ -169,7 +190,7 @@ public final class SelectorDTO implements Serializable {
     public void setName(final String name) {
         this.name = name;
     }
-
+    
     /**
      * Gets the value of matchMode.
      *
@@ -178,7 +199,7 @@ public final class SelectorDTO implements Serializable {
     public Integer getMatchMode() {
         return matchMode;
     }
-
+    
     /**
      * Sets the matchMode.
      *
@@ -187,7 +208,7 @@ public final class SelectorDTO implements Serializable {
     public void setMatchMode(final Integer matchMode) {
         this.matchMode = matchMode;
     }
-
+    
     /**
      * Gets the value of type.
      *
@@ -196,7 +217,7 @@ public final class SelectorDTO implements Serializable {
     public Integer getType() {
         return type;
     }
-
+    
     /**
      * Sets the type.
      *
@@ -205,7 +226,7 @@ public final class SelectorDTO implements Serializable {
     public void setType(final Integer type) {
         this.type = type;
     }
-
+    
     /**
      * Gets the value of sort.
      *
@@ -214,7 +235,7 @@ public final class SelectorDTO implements Serializable {
     public Integer getSort() {
         return sort;
     }
-
+    
     /**
      * Sets the sort.
      *
@@ -223,7 +244,7 @@ public final class SelectorDTO implements Serializable {
     public void setSort(final Integer sort) {
         this.sort = sort;
     }
-
+    
     /**
      * Gets the value of enabled.
      *
@@ -232,7 +253,7 @@ public final class SelectorDTO implements Serializable {
     public Boolean getEnabled() {
         return enabled;
     }
-
+    
     /**
      * Sets the enabled.
      *
@@ -241,7 +262,7 @@ public final class SelectorDTO implements Serializable {
     public void setEnabled(final Boolean enabled) {
         this.enabled = enabled;
     }
-
+    
     /**
      * Gets the value of loged.
      *
@@ -250,7 +271,7 @@ public final class SelectorDTO implements Serializable {
     public Boolean getLoged() {
         return loged;
     }
-
+    
     /**
      * Sets the loged.
      *
@@ -259,7 +280,7 @@ public final class SelectorDTO implements Serializable {
     public void setLoged(final Boolean loged) {
         this.loged = loged;
     }
-
+    
     /**
      * Gets the value of continued.
      *
@@ -268,7 +289,7 @@ public final class SelectorDTO implements Serializable {
     public Boolean getContinued() {
         return continued;
     }
-
+    
     /**
      * Sets the continued.
      *
@@ -277,7 +298,7 @@ public final class SelectorDTO implements Serializable {
     public void setContinued(final Boolean continued) {
         this.continued = continued;
     }
-
+    
     /**
      * Gets the value of handle.
      *
@@ -286,7 +307,7 @@ public final class SelectorDTO implements Serializable {
     public String getHandle() {
         return handle;
     }
-
+    
     /**
      * Sets the handle.
      *
@@ -295,7 +316,7 @@ public final class SelectorDTO implements Serializable {
     public void setHandle(final String handle) {
         this.handle = handle;
     }
-
+    
     /**
      * Gets the value of selectorConditions.
      *
@@ -304,7 +325,7 @@ public final class SelectorDTO implements Serializable {
     public List<SelectorConditionDTO> getSelectorConditions() {
         return selectorConditions;
     }
-
+    
     /**
      * Sets the selectorConditions.
      *
@@ -313,7 +334,25 @@ public final class SelectorDTO implements Serializable {
     public void setSelectorConditions(final List<SelectorConditionDTO> selectorConditions) {
         this.selectorConditions = selectorConditions;
     }
-
+    
+    /**
+     * get match restful.
+     *
+     * @return match restful value
+     */
+    public Boolean getMatchRestful() {
+        return matchRestful;
+    }
+    
+    /**
+     * set match restful value.
+     *
+     * @param matchRestful match restful value
+     */
+    public void setMatchRestful(final Boolean matchRestful) {
+        this.matchRestful = matchRestful;
+    }
+    
     /**
      * builder method.
      *
@@ -322,7 +361,7 @@ public final class SelectorDTO implements Serializable {
     public static SelectorDTO.SelectorDTOBuilder builder() {
         return new SelectorDTO.SelectorDTOBuilder();
     }
-
+    
     @Override
     public boolean equals(final Object o) {
         if (this == o) {
@@ -342,41 +381,45 @@ public final class SelectorDTO implements Serializable {
                 && Objects.equals(loged, that.loged)
                 && Objects.equals(continued, that.continued)
                 && Objects.equals(handle, that.handle)
-                && Objects.equals(selectorConditions, that.selectorConditions);
+                && Objects.equals(selectorConditions, that.selectorConditions)
+                && Objects.equals(matchRestful, that.matchRestful);
     }
-
+    
     @Override
     public int hashCode() {
-        return Objects.hash(id, pluginId, name, matchMode, type, sort, enabled, loged, continued, handle, selectorConditions);
+        return Objects.hash(id, pluginId, name, matchMode, type, sort, enabled, loged, continued, handle,
+                selectorConditions, matchRestful);
     }
-
+    
     public static final class SelectorDTOBuilder {
-
+        
         private String id;
-
+        
         private String pluginId;
-
+        
         private String name;
-
+        
         private Integer matchMode;
-
+        
         private Integer type;
-
+        
         private Integer sort;
-
+        
         private Boolean enabled;
-
+        
         private Boolean loged;
-
+        
         private Boolean continued;
-
+        
         private String handle;
-
+        
         private List<SelectorConditionDTO> selectorConditions;
-
+        
+        private Boolean matchRestful;
+        
         private SelectorDTOBuilder() {
         }
-
+        
         /**
          * id.
          *
@@ -387,7 +430,7 @@ public final class SelectorDTO implements Serializable {
             this.id = id;
             return this;
         }
-
+        
         /**
          * pluginId.
          *
@@ -398,7 +441,7 @@ public final class SelectorDTO implements Serializable {
             this.pluginId = pluginId;
             return this;
         }
-
+        
         /**
          * name.
          *
@@ -409,7 +452,7 @@ public final class SelectorDTO implements Serializable {
             this.name = name;
             return this;
         }
-
+        
         /**
          * matchMode.
          *
@@ -420,7 +463,7 @@ public final class SelectorDTO implements Serializable {
             this.matchMode = matchMode;
             return this;
         }
-
+        
         /**
          * type.
          *
@@ -431,7 +474,7 @@ public final class SelectorDTO implements Serializable {
             this.type = type;
             return this;
         }
-
+        
         /**
          * sort.
          *
@@ -442,7 +485,7 @@ public final class SelectorDTO implements Serializable {
             this.sort = sort;
             return this;
         }
-
+        
         /**
          * enabled.
          *
@@ -453,7 +496,7 @@ public final class SelectorDTO implements Serializable {
             this.enabled = enabled;
             return this;
         }
-
+        
         /**
          * loged.
          *
@@ -464,7 +507,7 @@ public final class SelectorDTO implements Serializable {
             this.loged = loged;
             return this;
         }
-
+        
         /**
          * continued.
          *
@@ -475,7 +518,7 @@ public final class SelectorDTO implements Serializable {
             this.continued = continued;
             return this;
         }
-
+        
         /**
          * handle.
          *
@@ -486,7 +529,7 @@ public final class SelectorDTO implements Serializable {
             this.handle = handle;
             return this;
         }
-
+        
         /**
          * selectorConditions.
          *
@@ -497,14 +540,26 @@ public final class SelectorDTO implements Serializable {
             this.selectorConditions = selectorConditions;
             return this;
         }
-
+    
+        /**
+         * match restful.
+         *
+         * @param matchRestful the matchRestful value
+         * @return SelectorDTOBuilder
+         */
+        public SelectorDTOBuilder matchRestful(final Boolean matchRestful) {
+            this.matchRestful = matchRestful;
+            return this;
+        }
+        
         /**
          * build method.
          *
          * @return build object.
          */
         public SelectorDTO build() {
-            return new SelectorDTO(id, pluginId, name, matchMode, type, sort, enabled, loged, continued, handle, selectorConditions);
+            return new SelectorDTO(id, pluginId, name, matchMode, type, sort, enabled, loged, continued, handle,
+                    selectorConditions, matchRestful);
         }
     }
 }

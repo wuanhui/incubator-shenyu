@@ -25,6 +25,7 @@ import org.springframework.boot.web.reactive.error.ErrorWebExceptionHandler;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.lang.NonNull;
+import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
@@ -34,36 +35,41 @@ import reactor.core.publisher.Mono;
  */
 public class GlobalErrorHandler implements ErrorWebExceptionHandler {
 
-    /**
-     * logger.
-     */
     private static final Logger LOG = LoggerFactory.getLogger(GlobalErrorHandler.class);
 
     /**
      * handler error.
      *
-     * @param exchange the exchange
+     * @param exchange  the exchange
      * @param throwable the throwable
      * @return error result
      */
     @Override
     @NonNull
     public Mono<Void> handle(@NonNull final ServerWebExchange exchange, @NonNull final Throwable throwable) {
-        LOG.error(exchange.getLogPrefix() + formatError(throwable, exchange.getRequest()));
-        HttpStatus httpStatus = HttpStatus.INTERNAL_SERVER_ERROR;
-        if (throwable instanceof ResponseStatusException) {
+        LOG.error("handle error: {} formatError:{} throwable:{}", exchange.getLogPrefix(), formatError(throwable, exchange.getRequest()), throwable);
+        HttpStatus httpStatus;
+        Object errorResult;
+        if (throwable instanceof IllegalArgumentException) {
+            httpStatus = HttpStatus.BAD_REQUEST;
+            errorResult = ShenyuResultWrap.error(exchange, httpStatus.value(), throwable.getMessage(), null);
+        } else if (throwable instanceof ResponseStatusException) {
             httpStatus = ((ResponseStatusException) throwable).getStatus();
+            String errMsg = StringUtils.hasLength(((ResponseStatusException) throwable).getReason()) ? ((ResponseStatusException) throwable).getReason() : httpStatus.getReasonPhrase();
+            errorResult = ShenyuResultWrap.error(exchange, httpStatus.value(), errMsg, null);
+        } else {
+            httpStatus = HttpStatus.INTERNAL_SERVER_ERROR;
+            errorResult = ShenyuResultWrap.error(exchange, httpStatus.value(), httpStatus.getReasonPhrase(), null);
         }
         exchange.getResponse().setStatusCode(httpStatus);
-        Object error = ShenyuResultWrap.error(httpStatus.value(), httpStatus.getReasonPhrase(), throwable.getMessage());
-        return WebFluxResultUtils.result(exchange, error);
+        return WebFluxResultUtils.result(exchange, errorResult);
     }
 
     /**
      * log error info.
      *
      * @param throwable the throwable
-     * @param request the request
+     * @param request   the request
      */
     private String formatError(final Throwable throwable, final ServerHttpRequest request) {
         String reason = throwable.getClass().getSimpleName() + ": " + throwable.getMessage();

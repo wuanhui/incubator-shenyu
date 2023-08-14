@@ -19,10 +19,13 @@ package org.apache.shenyu.springboot.plugin.divide;
 
 import org.apache.shenyu.plugin.api.ShenyuPlugin;
 import org.apache.shenyu.plugin.api.context.ShenyuContextDecorator;
+import org.apache.shenyu.plugin.base.handler.MetaDataHandler;
 import org.apache.shenyu.plugin.base.handler.PluginDataHandler;
 import org.apache.shenyu.plugin.divide.DividePlugin;
 import org.apache.shenyu.plugin.divide.context.DivideShenyuContextDecorator;
 import org.apache.shenyu.plugin.divide.handler.DividePluginDataHandler;
+import org.apache.shenyu.plugin.divide.handler.DivideMetaDataHandler;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -30,6 +33,7 @@ import org.springframework.context.annotation.Configuration;
  * ShenyuConfiguration.
  */
 @Configuration
+@ConditionalOnProperty(value = {"shenyu.plugins.divide.enabled"}, havingValue = "true", matchIfMissing = true)
 public class DividePluginConfiguration {
 
     /**
@@ -41,9 +45,9 @@ public class DividePluginConfiguration {
     public ShenyuPlugin dividePlugin() {
         return new DividePlugin();
     }
-    
+
     /**
-     * Divide plugin data handler plugin data handler.
+     * Divide plugin data handler.
      *
      * @return the plugin data handler
      */
@@ -51,9 +55,19 @@ public class DividePluginConfiguration {
     public PluginDataHandler dividePluginDataHandler() {
         return new DividePluginDataHandler();
     }
-    
+
     /**
-     * Divide shenyu context decorator shenyu context decorator.
+     * divide meta data handler.
+     *
+     * @return the meta data handler
+     */
+    @Bean
+    public MetaDataHandler divideMetaDataHandler() {
+        return new DivideMetaDataHandler();
+    }
+
+    /**
+     * Divide shenyu context decorator.
      *
      * @return the shenyu context decorator
      */

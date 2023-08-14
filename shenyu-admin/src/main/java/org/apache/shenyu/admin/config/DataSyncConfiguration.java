@@ -17,35 +17,60 @@
 
 package org.apache.shenyu.admin.config;
 
+import com.alibaba.nacos.api.NacosFactory;
+import com.alibaba.nacos.api.PropertyKeyConst;
 import com.alibaba.nacos.api.config.ConfigService;
 import com.ecwid.consul.v1.ConsulClient;
+import com.tencent.polaris.configuration.api.core.ConfigFilePublishService;
+import com.tencent.polaris.configuration.api.core.ConfigFileService;
+import com.tencent.polaris.configuration.factory.ConfigFileServiceFactory;
+import com.tencent.polaris.configuration.factory.ConfigFileServicePublishFactory;
+import com.tencent.polaris.factory.ConfigAPIFactory;
 import io.etcd.jetcd.Client;
-import org.I0Itec.zkclient.ZkClient;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.shenyu.admin.config.properties.ConsulProperties;
 import org.apache.shenyu.admin.config.properties.EtcdProperties;
 import org.apache.shenyu.admin.config.properties.HttpSyncProperties;
+import org.apache.shenyu.admin.config.properties.NacosProperties;
+import org.apache.shenyu.admin.config.properties.PolarisProperties;
 import org.apache.shenyu.admin.config.properties.WebsocketSyncProperties;
+import org.apache.shenyu.admin.config.properties.ZookeeperProperties;
+import org.apache.shenyu.admin.config.properties.ApolloProperties;
+import org.apache.shenyu.admin.controller.ConfigController;
+import org.apache.shenyu.admin.listener.DataChangedInit;
 import org.apache.shenyu.admin.listener.DataChangedListener;
+import org.apache.shenyu.admin.listener.apollo.ApolloClient;
+import org.apache.shenyu.admin.listener.apollo.ApolloDataChangedInit;
+import org.apache.shenyu.admin.listener.apollo.ApolloDataChangedListener;
+import org.apache.shenyu.admin.listener.consul.ConsulDataChangedInit;
 import org.apache.shenyu.admin.listener.consul.ConsulDataChangedListener;
-import org.apache.shenyu.admin.listener.consul.ConsulDataInit;
 import org.apache.shenyu.admin.listener.etcd.EtcdClient;
+import org.apache.shenyu.admin.listener.etcd.EtcdDataChangedInit;
 import org.apache.shenyu.admin.listener.etcd.EtcdDataDataChangedListener;
-import org.apache.shenyu.admin.listener.etcd.EtcdDataInit;
 import org.apache.shenyu.admin.listener.http.HttpLongPollingDataChangedListener;
+import org.apache.shenyu.admin.listener.nacos.NacosDataChangedInit;
 import org.apache.shenyu.admin.listener.nacos.NacosDataChangedListener;
-import org.apache.shenyu.admin.listener.nacos.NacosDataInit;
+import org.apache.shenyu.admin.listener.polaris.PolarisDataChangedInit;
+import org.apache.shenyu.admin.listener.polaris.PolarisDataChangedListener;
 import org.apache.shenyu.admin.listener.websocket.WebsocketCollector;
 import org.apache.shenyu.admin.listener.websocket.WebsocketDataChangedListener;
+import org.apache.shenyu.admin.listener.zookeeper.ZookeeperDataChangedInit;
 import org.apache.shenyu.admin.listener.zookeeper.ZookeeperDataChangedListener;
-import org.apache.shenyu.admin.listener.zookeeper.ZookeeperDataInit;
-import org.apache.shenyu.admin.service.SyncDataService;
+import org.apache.shenyu.common.exception.ShenyuException;
+import org.apache.shenyu.register.client.server.zookeeper.ZookeeperClient;
+import org.apache.shenyu.register.client.server.zookeeper.ZookeeperConfig;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Import;
 import org.springframework.web.socket.server.standard.ServerEndpointExporter;
+
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.Collections;
+import java.util.Objects;
+import java.util.Properties;
 
 /**
  * The type Data sync configuration.
@@ -66,6 +91,12 @@ public class DataSyncConfiguration {
         public HttpLongPollingDataChangedListener httpLongPollingDataChangedListener(final HttpSyncProperties httpSyncProperties) {
             return new HttpLongPollingDataChangedListener(httpSyncProperties);
         }
+
+        @Bean
+        @ConditionalOnMissingBean(ConfigController.class)
+        public ConfigController configController(final HttpLongPollingDataChangedListener httpLongPollingDataChangedListener) {
+            return new ConfigController(httpLongPollingDataChangedListener);
+        }
     }
 
     /**
@@ -73,8 +104,27 @@ public class DataSyncConfiguration {
      */
     @Configuration
     @ConditionalOnProperty(prefix = "shenyu.sync.zookeeper", name = "url")
-    @Import(ZookeeperConfiguration.class)
+    @EnableConfigurationProperties(ZookeeperProperties.class)
     static class ZookeeperListener {
+
+        /**
+         * register ZookeeperClient in spring ioc.
+         *
+         * @param zookeeperProp the zookeeper configuration
+         * @return ZookeeperClient {@linkplain ZookeeperClient}
+         */
+        @Bean
+        @ConditionalOnMissingBean(ZookeeperClient.class)
+        public ZookeeperClient zookeeperClient(final ZookeeperProperties zookeeperProp) {
+            int sessionTimeout = Objects.isNull(zookeeperProp.getSessionTimeout()) ? 3000 : zookeeperProp.getSessionTimeout();
+            int connectionTimeout = Objects.isNull(zookeeperProp.getConnectionTimeout()) ? 3000 : zookeeperProp.getConnectionTimeout();
+            ZookeeperConfig zkConfig = new ZookeeperConfig(zookeeperProp.getUrl());
+            zkConfig.setSessionTimeoutMilliseconds(sessionTimeout)
+                    .setConnectionTimeoutMilliseconds(connectionTimeout);
+            ZookeeperClient client = new ZookeeperClient(zkConfig);
+            client.start();
+            return client;
+        }
 
         /**
          * Config event listener data changed listener.
@@ -84,7 +134,7 @@ public class DataSyncConfiguration {
          */
         @Bean
         @ConditionalOnMissingBean(ZookeeperDataChangedListener.class)
-        public DataChangedListener zookeeperDataChangedListener(final ZkClient zkClient) {
+        public DataChangedListener zookeeperDataChangedListener(final ZookeeperClient zkClient) {
             return new ZookeeperDataChangedListener(zkClient);
         }
 
@@ -92,13 +142,12 @@ public class DataSyncConfiguration {
          * Zookeeper data init zookeeper data init.
          *
          * @param zkClient        the zk client
-         * @param syncDataService the sync data service
          * @return the zookeeper data init
          */
         @Bean
-        @ConditionalOnMissingBean(ZookeeperDataInit.class)
-        public ZookeeperDataInit zookeeperDataInit(final ZkClient zkClient, final SyncDataService syncDataService) {
-            return new ZookeeperDataInit(zkClient, syncDataService);
+        @ConditionalOnMissingBean(ZookeeperDataChangedInit.class)
+        public DataChangedInit zookeeperDataChangedInit(final ZookeeperClient zkClient) {
+            return new ZookeeperDataChangedInit(zkClient);
         }
     }
 
@@ -107,8 +156,41 @@ public class DataSyncConfiguration {
      */
     @Configuration
     @ConditionalOnProperty(prefix = "shenyu.sync.nacos", name = "url")
-    @Import(NacosConfiguration.class)
+    @EnableConfigurationProperties(NacosProperties.class)
     static class NacosListener {
+
+        /**
+         * register configService in spring ioc.
+         *
+         * @param nacosProp the nacos configuration
+         * @return ConfigService {@linkplain ConfigService}
+         * @throws Exception the exception
+         */
+        @Bean
+        @ConditionalOnMissingBean(ConfigService.class)
+        public ConfigService nacosConfigService(final NacosProperties nacosProp) throws Exception {
+            Properties properties = new Properties();
+            if (Objects.nonNull(nacosProp.getAcm()) && nacosProp.getAcm().isEnabled()) {
+                // Use aliyun ACM service
+                properties.put(PropertyKeyConst.ENDPOINT, nacosProp.getAcm().getEndpoint());
+                properties.put(PropertyKeyConst.NAMESPACE, nacosProp.getAcm().getNamespace());
+                // Use subaccount ACM administrative authority
+                properties.put(PropertyKeyConst.ACCESS_KEY, nacosProp.getAcm().getAccessKey());
+                properties.put(PropertyKeyConst.SECRET_KEY, nacosProp.getAcm().getSecretKey());
+            } else {
+                properties.put(PropertyKeyConst.SERVER_ADDR, nacosProp.getUrl());
+                if (StringUtils.isNotBlank(nacosProp.getNamespace())) {
+                    properties.put(PropertyKeyConst.NAMESPACE, nacosProp.getNamespace());
+                }
+                if (StringUtils.isNotBlank(nacosProp.getUsername())) {
+                    properties.put(PropertyKeyConst.USERNAME, nacosProp.getUsername());
+                }
+                if (StringUtils.isNotBlank(nacosProp.getPassword())) {
+                    properties.put(PropertyKeyConst.PASSWORD, nacosProp.getPassword());
+                }
+            }
+            return NacosFactory.createConfigService(properties);
+        }
 
         /**
          * Data changed listener data changed listener.
@@ -123,17 +205,77 @@ public class DataSyncConfiguration {
         }
 
         /**
-         * Nacos data init zookeeper data init.
+         * Nacos data init nacos data init.
          *
          * @param configService the config service
-         * @param syncDataService the sync data service
          * @return the nacos data init
          */
         @Bean
-        @ConditionalOnMissingBean(NacosDataInit.class)
-        public NacosDataInit nacosDataInit(final ConfigService configService, final SyncDataService syncDataService) {
-            return new NacosDataInit(configService, syncDataService);
+        @ConditionalOnMissingBean(NacosDataChangedInit.class)
+        public DataChangedInit nacosDataChangedInit(final ConfigService configService) {
+            return new NacosDataChangedInit(configService);
         }
+    }
+
+    /**
+     * The type Polaris listener.
+     */
+    @Configuration
+    @ConditionalOnProperty(prefix = "shenyu.sync.polaris", name = "url")
+    @EnableConfigurationProperties(PolarisProperties.class)
+    static class PolarisListener {
+
+        /**
+         * register configFileService in spring ioc.
+         *
+         * @return ConfigFileService {@linkplain ConfigFileService}
+         */
+        @Bean
+        @ConditionalOnMissingBean(ConfigFileService.class)
+        public ConfigFileService polarisConfigFileService(final PolarisProperties polarisProperties) {
+            com.tencent.polaris.api.config.Configuration configuration = ConfigAPIFactory.defaultConfig();
+            configuration.getConfigFile().getServerConnector().setAddresses(Collections.singletonList(polarisProperties.getUrl()));
+            return ConfigFileServiceFactory.createConfigFileService(configuration);
+        }
+
+        /**
+         * register configFilePublishService in spring ioc.
+         *
+         * @return ConfigFilePublishService {@linkplain ConfigFilePublishService}
+         */
+        @Bean
+        @ConditionalOnMissingBean(ConfigFilePublishService.class)
+        public ConfigFilePublishService polarisConfigFilePublishService(final PolarisProperties polarisProperties) {
+            com.tencent.polaris.api.config.Configuration configuration = ConfigAPIFactory.defaultConfig();
+            configuration.getConfigFile().getServerConnector().setAddresses(Collections.singletonList(polarisProperties.getUrl()));
+            return ConfigFileServicePublishFactory.createConfigFilePublishService(configuration);
+        }
+
+        /**
+         * Data changed listener data changed listener.
+         *
+         * @param configFileService the config service
+         * @return the data changed listener
+         */
+        @Bean
+        @ConditionalOnMissingBean(PolarisDataChangedListener.class)
+        public DataChangedListener polarisDataChangedListener(final PolarisProperties polarisProperties, final ConfigFileService configFileService,
+                                                              final ConfigFilePublishService configFilePublishService) {
+            return new PolarisDataChangedListener(polarisProperties, configFileService, configFilePublishService);
+        }
+
+        /**
+         * Polaris data init polaris data init.
+         *
+         * @param configFileService the config service
+         * @return the polaris data init
+         */
+        @Bean
+        @ConditionalOnMissingBean(PolarisDataChangedInit.class)
+        public DataChangedInit polarisDataChangedInit(final PolarisProperties polarisProperties, final ConfigFileService configFileService) {
+            return new PolarisDataChangedInit(polarisProperties, configFileService);
+        }
+
     }
 
     /**
@@ -186,6 +328,12 @@ public class DataSyncConfiguration {
     @EnableConfigurationProperties(EtcdProperties.class)
     static class EtcdListener {
 
+        /**
+         * Init etcd client.
+         *
+         * @param etcdProperties etcd properties
+         * @return Etcd Client
+         */
         @Bean
         public EtcdClient etcdClient(final EtcdProperties etcdProperties) {
             Client client = Client.builder()
@@ -210,13 +358,12 @@ public class DataSyncConfiguration {
          * data init.
          *
          * @param etcdClient        the etcd client
-         * @param syncDataService the sync data service
          * @return the etcd data init
          */
         @Bean
-        @ConditionalOnMissingBean(EtcdDataInit.class)
-        public EtcdDataInit etcdDataInit(final EtcdClient etcdClient, final SyncDataService syncDataService) {
-            return new EtcdDataInit(etcdClient, syncDataService);
+        @ConditionalOnMissingBean(EtcdDataChangedInit.class)
+        public DataChangedInit etcdDataChangedInit(final EtcdClient etcdClient) {
+            return new EtcdDataChangedInit(etcdClient);
         }
     }
 
@@ -235,7 +382,16 @@ public class DataSyncConfiguration {
          */
         @Bean
         public ConsulClient consulClient(final ConsulProperties consulProperties) {
-            return new ConsulClient(consulProperties.getUrl());
+            String url = consulProperties.getUrl();
+            if (StringUtils.isBlank(url)) {
+                throw new ShenyuException("sync.consul.url can not be null.");
+            }
+            try {
+                URL consulUrl = new URL(url);
+                return consulUrl.getPort() < 0 ? new ConsulClient(consulUrl.getHost()) : new ConsulClient(consulUrl.getHost(), consulUrl.getPort());
+            } catch (MalformedURLException e) {
+                throw new ShenyuException("sync.consul.url formatter is not incorrect.");
+            }
         }
 
         /**
@@ -254,14 +410,58 @@ public class DataSyncConfiguration {
          * Consul data init.
          *
          * @param consulClient the consul client
-         * @param syncDataService the sync data service
          * @return the consul data init
          */
         @Bean
-        @ConditionalOnMissingBean(ConsulDataInit.class)
-        public ConsulDataInit consulDataInit(final ConsulClient consulClient, final SyncDataService syncDataService) {
-            return new ConsulDataInit(consulClient, syncDataService);
+        @ConditionalOnMissingBean(ConsulDataChangedInit.class)
+        public DataChangedInit consulDataChangedInit(final ConsulClient consulClient) {
+            return new ConsulDataChangedInit(consulClient);
         }
+    }
+
+    /**
+     * the type apollo listener.
+     */
+    @Configuration
+    @ConditionalOnProperty(prefix = "shenyu.sync.apollo", name = "meta")
+    @EnableConfigurationProperties(ApolloProperties.class)
+    static class ApolloListener {
+
+        /**
+         * init Consul client.
+         *
+         * @param apolloProperties the apollo properties
+         * @return apollo client
+         */
+        @Bean
+        public ApolloClient apolloClient(final ApolloProperties apolloProperties) {
+            return new ApolloClient(apolloProperties);
+        }
+
+        /**
+         * Config event listener data changed listener.
+         *
+         * @param apolloClient the apollo client
+         * @return the data changed listener
+         */
+        @Bean
+        @ConditionalOnMissingBean(ApolloDataChangedListener.class)
+        public DataChangedListener apolloDataChangeListener(final ApolloClient apolloClient) {
+            return new ApolloDataChangedListener(apolloClient);
+        }
+
+        /**
+         * apollo data init.
+         *
+         * @param apolloClient the apollo client
+         * @return the apollo data init
+         */
+        @Bean
+        @ConditionalOnMissingBean(ApolloDataChangedInit.class)
+        public DataChangedInit apolloDataChangeInit(final ApolloClient apolloClient) {
+            return new ApolloDataChangedInit(apolloClient);
+        }
+
     }
 }
 

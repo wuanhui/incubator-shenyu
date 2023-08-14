@@ -22,6 +22,7 @@ import org.apache.shenyu.common.constant.NacosPathConstants;
 import org.apache.shenyu.sync.data.api.AuthDataSubscriber;
 import org.apache.shenyu.sync.data.api.MetaDataSubscriber;
 import org.apache.shenyu.sync.data.api.PluginDataSubscriber;
+import org.apache.shenyu.sync.data.api.ProxySelectorDataSubscriber;
 import org.apache.shenyu.sync.data.api.SyncDataService;
 import org.apache.shenyu.sync.data.nacos.handler.NacosCacheHandler;
 
@@ -30,7 +31,7 @@ import java.util.List;
 /**
  * The type Nacos sync data service.
  */
-public class NacosSyncDataService extends NacosCacheHandler implements AutoCloseable, SyncDataService {
+public class NacosSyncDataService extends NacosCacheHandler implements SyncDataService {
 
     /**
      * Instantiates a new Nacos sync data service.
@@ -41,9 +42,11 @@ public class NacosSyncDataService extends NacosCacheHandler implements AutoClose
      * @param authDataSubscribers   the auth data subscribers
      */
     public NacosSyncDataService(final ConfigService configService, final PluginDataSubscriber pluginDataSubscriber,
-                                final List<MetaDataSubscriber> metaDataSubscribers, final List<AuthDataSubscriber> authDataSubscribers) {
+                                final List<MetaDataSubscriber> metaDataSubscribers,
+                                final List<AuthDataSubscriber> authDataSubscribers,
+                                final List<ProxySelectorDataSubscriber> proxySelectorDataSubscribers) {
 
-        super(configService, pluginDataSubscriber, metaDataSubscribers, authDataSubscribers);
+        super(configService, pluginDataSubscriber, metaDataSubscribers, authDataSubscribers, proxySelectorDataSubscribers);
         start();
     }
 
@@ -56,6 +59,7 @@ public class NacosSyncDataService extends NacosCacheHandler implements AutoClose
         watcherData(NacosPathConstants.RULE_DATA_ID, this::updateRuleMap);
         watcherData(NacosPathConstants.META_DATA_ID, this::updateMetaDataMap);
         watcherData(NacosPathConstants.AUTH_DATA_ID, this::updateAuthMap);
+        watcherData(NacosPathConstants.PROXY_SELECTOR_DATA_ID, this::updateProxySelectorMap);
     }
 
     @Override

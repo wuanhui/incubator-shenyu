@@ -25,6 +25,7 @@ import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.ExtensionRegistryLite;
 import io.grpc.MethodDescriptor;
 import org.apache.shenyu.common.utils.GsonUtils;
+import org.apache.shenyu.common.utils.ParamCheckUtils;
 import org.apache.shenyu.protocol.grpc.constant.GrpcConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,7 +46,7 @@ public class JsonMessage {
     /**
      * methodDescriptorCache.
      */
-    private static Map<String, MethodDescriptor<DynamicMessage, DynamicMessage>> methodDescriptorCache = Maps.newConcurrentMap();
+    private static final Map<String, MethodDescriptor<DynamicMessage, DynamicMessage>> METHOD_DESCRIPTOR_CACHE = Maps.newConcurrentMap();
 
     /**
      * Dynamic build JsonMarshaller Descriptor.
@@ -83,6 +84,7 @@ public class JsonMessage {
      * @return DynamicMessageList
      */
     public static List<DynamicMessage> buildJsonMessageList(final Map<String, Object> jsonParamMap) {
+        ParamCheckUtils.checkParamsLength(jsonParamMap.size(), GrpcConstants.JSON_DESCRIPTOR_PROTO_FIELD_NUM);
         JsonArray jsonParams = (JsonArray) jsonParamMap.get(GrpcConstants.JSON_DESCRIPTOR_PROTO_FIELD_NAME);
         List<DynamicMessage> jsonMessageList = new ArrayList<>(jsonParams.size());
         jsonParams.forEach(jsonParam -> {
@@ -153,7 +155,7 @@ public class JsonMessage {
                                                                                                         final MethodDescriptor.MethodType methodType,
                                                                                                         final DynamicMessage request,
                                                                                                         final DynamicMessage response) {
-        MethodDescriptor<DynamicMessage, DynamicMessage> methodDescriptor = methodDescriptorCache.get(serviceName + GrpcConstants.GRPC_JSON_SERVICE + methodName);
+        MethodDescriptor<DynamicMessage, DynamicMessage> methodDescriptor = METHOD_DESCRIPTOR_CACHE.get(serviceName + GrpcConstants.GRPC_JSON_SERVICE + methodName);
         if (methodDescriptor == null) {
             methodDescriptor = MethodDescriptor.<DynamicMessage, DynamicMessage>newBuilder()
                     .setType(getMethodType(methodType))
@@ -161,7 +163,7 @@ public class JsonMessage {
                     .setRequestMarshaller(new DynamicMessageMarshaller(request.getDescriptorForType()))
                     .setResponseMarshaller(new DynamicMessageMarshaller(response.getDescriptorForType()))
                     .build();
-            methodDescriptorCache.put(serviceName + GrpcConstants.GRPC_JSON_SERVICE + methodName, methodDescriptor);
+            METHOD_DESCRIPTOR_CACHE.put(serviceName + GrpcConstants.GRPC_JSON_SERVICE + methodName, methodDescriptor);
 
         }
         return methodDescriptor;

@@ -1,11 +1,10 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -18,16 +17,19 @@
 
 package org.apache.shenyu.admin.config;
 
+import com.ecwid.consul.v1.ConsulClient;
 import org.apache.shenyu.register.common.config.ShenyuRegisterCenterConfig;
-import org.apache.shenyu.register.server.consul.ShenyuConsulConfigWatch;
-import org.junit.Test;
+import org.apache.shenyu.register.client.server.consul.ShenyuConsulConfigWatch;
+import org.junit.jupiter.api.Test;
+import org.mockito.MockedConstruction;
 import org.springframework.context.ApplicationEventPublisher;
 
 import java.util.Properties;
 
-import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.when;
 
 /**
@@ -45,5 +47,19 @@ public final class ConsulServerConfigurationTest {
         ApplicationEventPublisher publisher = mock(ApplicationEventPublisher.class);
         ShenyuConsulConfigWatch shenyuConsulConfigWatch = configuration.shenyuConsulConfigWatch(config, publisher);
         assertNotNull(shenyuConsulConfigWatch);
+    }
+
+    @Test
+    public void consulClientTest() {
+        try (MockedConstruction<ConsulClient> consulClientMockedConstruction = mockConstruction(ConsulClient.class)) {
+            ConsulServerConfiguration configuration = new ConsulServerConfiguration();
+            ShenyuRegisterCenterConfig config = mock(ShenyuRegisterCenterConfig.class);
+            Properties properties = mock(Properties.class);
+            when(config.getProps()).thenReturn(properties);
+            when(config.getProps().getProperty(any(), any())).thenReturn("1", "30", "mocked valued");
+            when(config.getServerLists()).thenReturn("127.0.0.1:8500");
+            ConsulClient consulClient = configuration.consulClient(config);
+            assertNotNull(consulClient);
+        }
     }
 }

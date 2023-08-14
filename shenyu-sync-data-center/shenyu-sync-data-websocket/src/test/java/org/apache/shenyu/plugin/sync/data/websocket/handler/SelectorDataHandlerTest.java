@@ -21,13 +21,13 @@ import com.google.gson.Gson;
 import org.apache.shenyu.common.dto.ConditionData;
 import org.apache.shenyu.common.dto.SelectorData;
 import org.apache.shenyu.sync.data.api.PluginDataSubscriber;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -49,8 +49,8 @@ public final class SelectorDataHandlerTest {
         ConditionData conditionData = new ConditionData();
         conditionData.setParamName("conditionName-" + 0);
         List<ConditionData> conditionDataList = Collections.singletonList(conditionData);
-        selectorDataList.add(SelectorData.builder().name("name1").enabled(true).conditionList(conditionDataList).build());
-        selectorDataList.add(SelectorData.builder().name("name2").build());
+        selectorDataList.add(SelectorData.builder().name("name1").enabled(true).continued(true).conditionList(conditionDataList).build());
+        selectorDataList.add(SelectorData.builder().name("name2").enabled(true).continued(true).build());
         Gson gson = new Gson();
         String json = gson.toJson(selectorDataList);
         List<SelectorData> convertedList = selectorDataHandler.convert(json);

@@ -41,7 +41,12 @@ public final class ShenyuClientConstants {
      * The constant HTTP.
      */
     public static final String HTTP = "http://";
-    
+
+    /**
+     * The constant Websocket.
+     */
+    public static final String WS = "ws://";
+
     /**
      * The constant PROTOCOL.
      */
@@ -66,4 +71,15 @@ public final class ShenyuClientConstants {
      * the constant of SERVICE_NAME.
      */
     public static final String SERVICE_NAME = "SERVICE_NAME";
+
+    /**
+     * prefix forward status.
+     */
+    public static final String ADD_PREFIXED = "addPrefixed";
+
+    /**
+     * media type all value.
+     */
+    public static final String MEDIA_TYPE_ALL_VALUE = "*/*";
+
 }

@@ -18,23 +18,22 @@
 package org.apache.shenyu.client.core.disruptor;
 
 import org.apache.shenyu.client.core.disruptor.executor.RegisterClientConsumerExecutor.RegisterClientExecutorFactory;
+import org.apache.shenyu.client.core.disruptor.subcriber.ShenyuClientApiDocExecutorSubscriber;
 import org.apache.shenyu.client.core.disruptor.subcriber.ShenyuClientMetadataExecutorSubscriber;
 import org.apache.shenyu.client.core.disruptor.subcriber.ShenyuClientURIExecutorSubscriber;
 import org.apache.shenyu.disruptor.DisruptorProviderManage;
 import org.apache.shenyu.disruptor.provider.DisruptorProvider;
 import org.apache.shenyu.register.client.api.ShenyuClientRegisterRepository;
+import org.apache.shenyu.register.common.type.DataTypeParent;
 
 /**
  * The type shenyu client register event publisher.
  */
-@SuppressWarnings("all")
 public class ShenyuClientRegisterEventPublisher {
     
     private static final ShenyuClientRegisterEventPublisher INSTANCE = new ShenyuClientRegisterEventPublisher();
     
-    private DisruptorProviderManage providerManage;
-    
-    private RegisterClientExecutorFactory factory;
+    private DisruptorProviderManage<DataTypeParent> providerManage;
     
     /**
      * Get instance.
@@ -51,21 +50,21 @@ public class ShenyuClientRegisterEventPublisher {
      * @param shenyuClientRegisterRepository shenyuClientRegisterRepository
      */
     public void start(final ShenyuClientRegisterRepository shenyuClientRegisterRepository) {
-        factory = new RegisterClientExecutorFactory();
+        RegisterClientExecutorFactory factory = new RegisterClientExecutorFactory();
         factory.addSubscribers(new ShenyuClientMetadataExecutorSubscriber(shenyuClientRegisterRepository));
         factory.addSubscribers(new ShenyuClientURIExecutorSubscriber(shenyuClientRegisterRepository));
-        providerManage = new DisruptorProviderManage(factory);
+        factory.addSubscribers(new ShenyuClientApiDocExecutorSubscriber(shenyuClientRegisterRepository));
+        providerManage = new DisruptorProviderManage<>(factory);
         providerManage.startup();
     }
     
     /**
      * Publish event.
      *
-     * @param <T> the type parameter
      * @param data the data
      */
-    public <T> void publishEvent(final T data) {
-        DisruptorProvider<Object> provider = providerManage.getProvider();
+    public void publishEvent(final DataTypeParent data) {
+        DisruptorProvider<DataTypeParent> provider = providerManage.getProvider();
         provider.onData(data);
     }
 }

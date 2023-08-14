@@ -14,21 +14,48 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+ 
 package org.apache.shenyu.common.enums;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * PluginEnum.
  */
 public enum PluginEnum {
-    
+
     /**
      * Global plugin enum.
      */
-    GLOBAL(10, 0, "global"),
+    GLOBAL(-1, 0, "global"),
+    
+    /**
+     * Tcp plugin enum.
+     */
+    TCP(0, 0, "tcp"),
+    
+    /**
+     * Mqtt plugin enum.
+     */
+    MQTT(0, 0, "mqtt"),
+
+    /**
+     * the mock plugin enum.
+     */
+    MOCK(8, 0, "mock"),
+    
+    /**
+     * the cache plugin enum.
+     */
+    CACHE(10, 0, "cache"),
+    
+    /**
+     * Monitor plugin enum.
+     */
+    METRICS(15, 0, "metrics"),
     
     /**
      * Sign plugin enum.
@@ -44,7 +71,12 @@ public enum PluginEnum {
      * OAuth2 plugin enum.
      */
     OAUTH2(40, 0, "oauth2"),
-    
+
+    /**
+     * Casdoor plugin enum.
+     */
+    CASDOOR(40, 0, "casdoor"),
+
     /**
      * Waf plugin enum.
      */
@@ -84,7 +116,7 @@ public enum PluginEnum {
      * Request plugin enum.
      */
     REQUEST(120, 0, "request"),
-
+    
     /**
      * GeneralContext plugin enum.
      */
@@ -106,14 +138,49 @@ public enum PluginEnum {
     RESILIENCE4J(150, 0, "resilience4j"),
     
     /**
-     * Logging plugin enum.
+     * Logging console plugin enum.
      */
-    LOGGING(160, 0, "logging"),
+    LOGGING_CONSOLE(160, 0, "loggingConsole"),
     
     /**
-     * Monitor plugin enum.
+     * Logging RocketMQ plugin enum.
      */
-    MONITOR(170, 0, "monitor"),
+    LOGGING_ROCKETMQ(170, 0, "loggingRocketMQ"),
+
+    /**
+     * Logging AliYun sls enums.
+     */
+    LOGGING_ALIYUN_SLS(175, 0, "loggingAliyunSls"),
+
+    /**
+     * Logging Tencent cls enums.
+     */
+    LOGGING_TENCENT_CLS(176, 0, "loggingTencentCls"),
+
+    /**
+     * Logging Huawei lts enums.
+     */
+    LOGGING_HUAWEI_LTS(177, 0, "loggingHuaweiLts"),
+
+    /**
+     * Logging Kafka plugin enum.
+     */
+    LOGGING_KAFKA(180, 0, "loggingKafka"),
+
+    /**
+     * Logging Pulsar plugin enum.
+     */
+    LOGGING_PULSAR(185, 0, "loggingPulsar"),
+
+    /**
+     * Logging ElasticSearch plugin enum.
+     */
+    LOGGING_ELASTIC_SEARCH(190, 0, "loggingElasticSearch"),
+
+    /**
+     * Logging ClickHouse plugin enum.
+     */
+    LOGGING_CLICK_HOUSE(195, 0, "loggingClickHouse"),
     
     /**
      * Divide plugin enum.
@@ -179,7 +246,12 @@ public enum PluginEnum {
      * Motan plugin enum.
      */
     MOTAN(310, 0, "motan"),
-    
+
+    /**
+     * Motan plugin enum.
+     */
+    BRPC(310, 0, "brpc"),
+
     /**
      * Cryptor response plugin enum.
      */
@@ -188,14 +260,25 @@ public enum PluginEnum {
     /**
      * Response plugin enum.
      */
-    RESPONSE(420, 0, "response");
+    RESPONSE(420, 0, "response"),
 
+    /**
+     * Key-auth plugin enum.
+     */
+    KEY_AUTH(430, 0, "keyAuth");
+    
+    /**
+     * When the application starts, the plugin is cached and we can obtained by name.
+     * When there are duplicate plugin names, it can be detected and resolved at compile time.
+     */
+    private static final Map<String, PluginEnum> PLUGIN_ENUM_MAP = Arrays.stream(PluginEnum.values()).collect(Collectors.toMap(plugin -> plugin.name, plugin -> plugin));
+    
     private final int code;
-
+    
     private final int role;
-
+    
     private final String name;
-
+    
     /**
      * all args constructor.
      *
@@ -243,9 +326,7 @@ public enum PluginEnum {
      * @return plugin enum.
      */
     public static PluginEnum getPluginEnumByName(final String name) {
-        return Arrays.stream(PluginEnum.values())
-                .filter(pluginEnum -> pluginEnum.getName().equals(name))
-                .findFirst().orElse(PluginEnum.GLOBAL);
+        return PLUGIN_ENUM_MAP.getOrDefault(name, PluginEnum.GLOBAL);
     }
     
     /**

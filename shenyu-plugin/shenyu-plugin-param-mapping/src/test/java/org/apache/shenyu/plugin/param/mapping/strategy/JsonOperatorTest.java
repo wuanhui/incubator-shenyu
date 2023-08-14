@@ -19,16 +19,17 @@ package org.apache.shenyu.plugin.param.mapping.strategy;
 
 import org.apache.shenyu.common.dto.convert.rule.impl.ParamMappingRuleHandle;
 import org.apache.shenyu.plugin.api.ShenyuPluginChain;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.web.server.MockServerWebExchange;
+import org.springframework.web.reactive.function.server.HandlerStrategies;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -43,7 +44,7 @@ import static org.mockito.Mockito.when;
 /**
  * Test case for {@link JsonOperator}.
  */
-@RunWith(MockitoJUnitRunner.class)
+@ExtendWith(MockitoExtension.class)
 public class JsonOperatorTest {
 
     @Mock
@@ -55,7 +56,7 @@ public class JsonOperatorTest {
 
     private ParamMappingRuleHandle paramMappingRuleHandle;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         Set<String> remove = new HashSet<>();
         remove.add("$.age");
@@ -71,7 +72,7 @@ public class JsonOperatorTest {
         this.paramMappingRuleHandle.setRemoveParameterKeys(remove);
         this.paramMappingRuleHandle.setAddParameterKeys(Collections.singletonList(add));
         this.paramMappingRuleHandle.setReplaceParameterKeys(Collections.singletonList(replace));
-        this.jsonOperator = new JsonOperator();
+        this.jsonOperator = new JsonOperator(HandlerStrategies.builder().build().messageReaders());
         final String body = "{\"name\":\"shenyu\",\"age\":\"18\"}";
         this.exchange = MockServerWebExchange.from(MockServerHttpRequest.method(HttpMethod.POST, "localhost")
                 .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE).body(body));

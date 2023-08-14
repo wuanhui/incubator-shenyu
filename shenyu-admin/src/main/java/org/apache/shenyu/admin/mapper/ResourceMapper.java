@@ -21,7 +21,9 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.shenyu.admin.model.entity.ResourceDO;
 import org.apache.shenyu.admin.model.query.ResourceQuery;
+import org.apache.shenyu.admin.validation.ExistProvider;
 
+import java.io.Serializable;
 import java.util.List;
 import java.util.Set;
 
@@ -29,8 +31,17 @@ import java.util.Set;
  * this is resource mapper.
  */
 @Mapper
-public interface ResourceMapper {
-
+public interface ResourceMapper extends ExistProvider {
+    
+    /**
+     * existed.
+     *
+     * @param id id
+     * @return existed
+     */
+    @Override
+    Boolean existed(@Param("id") Serializable id);
+    
     /**
      * select resource by id.
      *
@@ -38,14 +49,24 @@ public interface ResourceMapper {
      * @return {@linkplain ResourceDO}
      */
     ResourceDO selectById(String id);
-
+    
+    /**
+     * select resource by user name.<br>
+     * Get all resources with permissions under the specified user.
+     *
+     * @param userName user name
+     * @return {@link ResourceDO} list
+     */
+    List<ResourceDO> selectByUserName(@Param("userName") String userName);
+    
     /**
      * select resource by id batch.
+     *
      * @param resourceIds resourceId is the primary key
      * @return {@link ResourceDO} list
      */
     List<ResourceDO> selectByIdsBatch(@Param("resourceIds") Set<String> resourceIds);
-
+    
     /**
      * select resource by parentId.
      *
@@ -53,7 +74,7 @@ public interface ResourceMapper {
      * @return {@linkplain List}
      */
     List<ResourceDO> selectByParentId(@Param("parentId") String parentId);
-
+    
     /**
      * select resource by query.
      *
@@ -61,7 +82,7 @@ public interface ResourceMapper {
      * @return {@linkplain List}
      */
     List<ResourceDO> selectByQuery(ResourceQuery resourceQuery);
-
+    
     /**
      * select resource by title.
      *
@@ -69,7 +90,7 @@ public interface ResourceMapper {
      * @return {@linkplain List}
      */
     ResourceDO selectByTitle(@Param("title") String title);
-
+    
     /**
      * select resource by title.
      *
@@ -77,14 +98,15 @@ public interface ResourceMapper {
      * @return {@linkplain List}
      */
     List<ResourceDO> selectByTitles(List<String> titles);
-
+    
     /**
      * select the resources by resourceType.
-     * @param resourceType  type of the resource
+     *
+     * @param resourceType type of the resource
      * @return {@link ResourceDO} list
      */
     List<ResourceDO> selectByResourceType(@Param("resourceType") Integer resourceType);
-
+    
     /**
      * count resource by query.
      *
@@ -92,7 +114,7 @@ public interface ResourceMapper {
      * @return {@linkplain Integer}
      */
     Integer countByQuery(ResourceQuery resourceQuery);
-
+    
     /**
      * insert resource.
      *
@@ -100,7 +122,7 @@ public interface ResourceMapper {
      * @return rows int
      */
     int insert(ResourceDO resourceDO);
-
+    
     /**
      * insert selective resource.
      *
@@ -108,7 +130,15 @@ public interface ResourceMapper {
      * @return rows int
      */
     int insertSelective(ResourceDO resourceDO);
-
+    
+    /**
+     * batch insert resources.
+     *
+     * @param resourceDOList list of {@linkplain ResourceDO}
+     * @return rows int
+     */
+    int insertBatch(@Param("resourceDOList") List<ResourceDO> resourceDOList);
+    
     /**
      * update resource.
      *
@@ -116,7 +146,7 @@ public interface ResourceMapper {
      * @return rows int
      */
     int update(ResourceDO resourceDO);
-
+    
     /**
      * update selective resource.
      *
@@ -124,7 +154,7 @@ public interface ResourceMapper {
      * @return rows int
      */
     int updateSelective(ResourceDO resourceDO);
-
+    
     /**
      * delete resource.
      *
@@ -132,11 +162,19 @@ public interface ResourceMapper {
      * @return rows int
      */
     int delete(List<String> ids);
-
+    
     /**
      * list All.
      *
      * @return {@linkplain List}
      */
     List<ResourceDO> selectAll();
+
+    /**
+     * resource existed.
+     *
+     * @param name name
+     * @return existed
+     */
+    Boolean nameExisted(@Param("name") Serializable name);
 }

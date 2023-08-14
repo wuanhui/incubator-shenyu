@@ -17,15 +17,12 @@
 
 package org.apache.shenyu.admin.listener.http;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.shenyu.admin.model.result.ShenyuAdminResult;
 import org.apache.shenyu.admin.utils.ShenyuResultMessage;
 import org.apache.shenyu.common.enums.ConfigGroupEnum;
 import org.apache.shenyu.common.utils.GsonUtils;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.platform.commons.util.StringUtils;
-import org.junit.runner.RunWith;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -35,14 +32,18 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * The TestCase for {@link HttpLongPollingDataChangedListener}.
  */
-@RunWith(MockitoJUnitRunner.class)
+@ExtendWith(MockitoExtension.class)
 public final class HttpLongPollingDataChangedListenerTest {
 
     private static final String X_REAL_IP = "X-Real-IP";
@@ -53,7 +54,7 @@ public final class HttpLongPollingDataChangedListenerTest {
 
     private MockHttpServletResponse httpServletResponse;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         this.httpServletRequest = new MockHttpServletRequest();
         this.httpServletResponse = new MockHttpServletResponse();
@@ -112,11 +113,15 @@ public final class HttpLongPollingDataChangedListenerTest {
         this.httpServletRequest.setParameter(ConfigGroupEnum.APP_AUTH.name(), "F1887D3F9E6EE7A32FE5E76F4AB80D62,1607068124");
         this.httpServletRequest.setParameter(ConfigGroupEnum.SELECTOR.name(), "F1887D3F9E6EE7A32FE5E76F4AB80D61,1607068123");
         this.httpServletRequest.setParameter(ConfigGroupEnum.META_DATA.name(), "F1887D3F9E6EE7A32FE5E76F4AB80D60,1607068122");
+        this.httpServletRequest.setParameter(ConfigGroupEnum.PROXY_SELECTOR.name(), "F1887D3F9E6EE7A32FE5E76F4AB80D59,1607068121");
+        this.httpServletRequest.setParameter(ConfigGroupEnum.DISCOVER_UPSTREAM.name(), "F1887D3F9E6EE7A32FE5E76F4AB80D58,1607068120");
         assertEquals("E10ADC3949BA59ABBE56E057F20F883E,1607068125", this.httpServletRequest.getParameter(ConfigGroupEnum.RULE.name()));
         assertEquals("F1887D3F9E6EE7A32FE5E76F4AB80D63,1607068126", this.httpServletRequest.getParameter(ConfigGroupEnum.PLUGIN.name()));
         assertEquals("F1887D3F9E6EE7A32FE5E76F4AB80D62,1607068124", this.httpServletRequest.getParameter(ConfigGroupEnum.APP_AUTH.name()));
         assertEquals("F1887D3F9E6EE7A32FE5E76F4AB80D61,1607068123", this.httpServletRequest.getParameter(ConfigGroupEnum.SELECTOR.name()));
         assertEquals("F1887D3F9E6EE7A32FE5E76F4AB80D60,1607068122", this.httpServletRequest.getParameter(ConfigGroupEnum.META_DATA.name()));
+        assertEquals("F1887D3F9E6EE7A32FE5E76F4AB80D59,1607068121", this.httpServletRequest.getParameter(ConfigGroupEnum.PROXY_SELECTOR.name()));
+        assertEquals("F1887D3F9E6EE7A32FE5E76F4AB80D58,1607068120", this.httpServletRequest.getParameter(ConfigGroupEnum.DISCOVER_UPSTREAM.name()));
         for (ConfigGroupEnum group : ConfigGroupEnum.values()) {
             String[] params = Objects.requireNonNull(this.httpServletRequest.getParameter(group.name())).split(",");
             assertNotNull(params);

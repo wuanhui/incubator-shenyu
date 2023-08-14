@@ -17,20 +17,28 @@
 
 package org.apache.shenyu.web.forward;
 
-import org.junit.Assert;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.web.server.MockServerWebExchange;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ServerWebExchange;
 
+import java.util.Collections;
+
+import static org.apache.shenyu.web.forward.ForwardedRemoteAddressResolver.X_FORWARDED_FOR;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 /**
  * Test cases for ForwardedRemoteAddressResolver.
  *
  */
-@RunWith(MockitoJUnitRunner.class)
+@ExtendWith(MockitoExtension.class)
 public final class ForwardedRemoteAddressResolverTest {
 
     @Test
@@ -38,16 +46,16 @@ public final class ForwardedRemoteAddressResolverTest {
         try {
             ForwardedRemoteAddressResolver.maxTrustedIndex(0);
         } catch (Exception e) {
-            Assert.assertEquals(e.getMessage(), "An index greater than 0 is required");
+            assertEquals(e.getMessage(), "An index greater than 0 is required");
         }
 
         ForwardedRemoteAddressResolver instance = ForwardedRemoteAddressResolver.maxTrustedIndex(5);
         int maxTrustedIndex = (int) ReflectionTestUtils.getField(instance, "maxTrustedIndex");
-        Assert.assertEquals(maxTrustedIndex, 5);
+        assertEquals(maxTrustedIndex, 5);
 
         ForwardedRemoteAddressResolver all = ForwardedRemoteAddressResolver.trustAll();
         maxTrustedIndex = (int) ReflectionTestUtils.getField(all, "maxTrustedIndex");
-        Assert.assertEquals(maxTrustedIndex, Integer.MAX_VALUE);
+        assertEquals(maxTrustedIndex, Integer.MAX_VALUE);
     }
 
     @Test
@@ -73,6 +81,14 @@ public final class ForwardedRemoteAddressResolverTest {
         instance.resolve(forwardExchange);
         instance.resolve(multiForwardExchangeError);
         instance.resolve(multiForwardExchange);
+
+        ServerWebExchange headerEmptyExchange = mock(ServerWebExchange.class);
+        ServerHttpRequest headerEmptyServerHttpRequest = mock(ServerHttpRequest.class);
+        HttpHeaders headerEmptyHttpHeaders = mock(HttpHeaders.class);
+        when(headerEmptyExchange.getRequest()).thenReturn(headerEmptyServerHttpRequest);
+        when(headerEmptyServerHttpRequest.getHeaders()).thenReturn(headerEmptyHttpHeaders);
+        when(headerEmptyHttpHeaders.get(X_FORWARDED_FOR)).thenReturn(Collections.emptyList());
+        instance.resolve(headerEmptyExchange);
     }
 
 }

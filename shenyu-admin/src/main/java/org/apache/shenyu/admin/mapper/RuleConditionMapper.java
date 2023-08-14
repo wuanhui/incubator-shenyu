@@ -17,20 +17,24 @@
 
 package org.apache.shenyu.admin.mapper;
 
+import com.google.common.collect.Lists;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.shenyu.admin.model.entity.RuleConditionDO;
 import org.apache.shenyu.admin.model.query.RuleConditionQuery;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.Collection;
+import java.util.stream.Collectors;
 
 /**
  * RuleConditionMapper.
  */
 @Mapper
 public interface RuleConditionMapper {
-
+    
     /**
      * select rule condition by id.
      *
@@ -38,7 +42,7 @@ public interface RuleConditionMapper {
      * @return {@linkplain RuleConditionDO}
      */
     RuleConditionDO selectById(String id);
-
+    
     /**
      * select rule condition by query.
      *
@@ -46,13 +50,25 @@ public interface RuleConditionMapper {
      * @return {@linkplain List}
      */
     List<RuleConditionDO> selectByQuery(RuleConditionQuery ruleConditionQuery);
-
+    
     /**
      * select list of rule conditions by a set of ruleIds.
+     *
      * @param ruleIdSet a set of ruleIds
      * @return a list of {@linkplain RuleConditionDO}
      */
-    List<RuleConditionDO> selectByRuleIdSet(@Param("ruleIdSet") Set<String> ruleIdSet);
+    default List<RuleConditionDO> selectByRuleIdSet(@Param("ruleIdSet") Set<String> ruleIdSet) {
+        final List<List<String>> ruleIdSetPartition = Lists.partition(new ArrayList<>(ruleIdSet), 500);
+        return ruleIdSetPartition.stream().map(this::selectByRuleIdSet0).flatMap(Collection::stream).collect(Collectors.toList());
+    }
+
+    /**
+     * select list of rule conditions by a set of ruleIds.
+     *
+     * @param ruleIdSet a set of ruleIds
+     * @return a list of {@linkplain RuleConditionDO}
+     */
+    List<RuleConditionDO> selectByRuleIdSet0(@Param("ruleIdSet") List<String> ruleIdSet);
 
     /**
      * insert rule condition.
@@ -61,7 +77,7 @@ public interface RuleConditionMapper {
      * @return rows
      */
     int insert(RuleConditionDO ruleConditionDO);
-
+    
     /**
      * insert selective rule condition.
      *
@@ -69,7 +85,7 @@ public interface RuleConditionMapper {
      * @return rows
      */
     int insertSelective(RuleConditionDO ruleConditionDO);
-
+    
     /**
      * update rule condition.
      *
@@ -77,7 +93,7 @@ public interface RuleConditionMapper {
      * @return rows
      */
     int update(RuleConditionDO ruleConditionDO);
-
+    
     /**
      * update selective rule condition.
      *
@@ -85,7 +101,7 @@ public interface RuleConditionMapper {
      * @return rows
      */
     int updateSelective(RuleConditionDO ruleConditionDO);
-
+    
     /**
      * delete rule condition.
      *
@@ -93,7 +109,7 @@ public interface RuleConditionMapper {
      * @return rows
      */
     int delete(String id);
-
+    
     /**
      * delete rule condition.
      *
@@ -101,7 +117,7 @@ public interface RuleConditionMapper {
      * @return rows
      */
     int deleteByRuleIds(List<String> ruleIds);
-
+    
     /**
      * delete rule condition by query.
      *

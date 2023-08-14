@@ -27,11 +27,11 @@ import org.apache.shenyu.common.dto.PluginData;
 import org.apache.shenyu.common.dto.RuleData;
 import org.apache.shenyu.common.dto.SelectorData;
 import org.apache.shenyu.common.enums.DataEventTypeEnum;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
@@ -41,7 +41,7 @@ import static org.mockito.Mockito.when;
 /**
  * The testCase for {@link NacosDataChangedListener}.
  */
-@RunWith(MockitoJUnitRunner.class)
+@ExtendWith(MockitoExtension.class)
 public class NacosDataChangedListenerTest {
 
     private static final String MOCK_APP_KEY = "MOCK_APP_KEY";
@@ -79,7 +79,7 @@ public class NacosDataChangedListenerTest {
         nacosDataChangedListener.onAppAuthChanged(ImmutableList.of(appAuthData), DataEventTypeEnum.REFRESH);
         nacosDataChangedListener.onAppAuthChanged(ImmutableList.of(appAuthData), DataEventTypeEnum.MYSELF);
         nacosDataChangedListener.onAppAuthChanged(ImmutableList.of(appAuthData), DataEventTypeEnum.CREATE);
-        verify(configService, times(4)).publishConfig(any(String.class), any(String.class), any(String.class));
+        verify(configService, times(4)).publishConfig(any(String.class), any(String.class), any(String.class), any(String.class));
 
         when(configService.getConfig(NacosPathConstants.AUTH_DATA_ID, NacosPathConstants.GROUP,
                 NacosPathConstants.DEFAULT_TIME_OUT)).thenReturn(NacosPathConstants.EMPTY_CONFIG_DEFAULT_VALUE);
@@ -87,7 +87,7 @@ public class NacosDataChangedListenerTest {
         nacosDataChangedListener.onAppAuthChanged(ImmutableList.of(appAuthData), DataEventTypeEnum.REFRESH);
         nacosDataChangedListener.onAppAuthChanged(ImmutableList.of(appAuthData), DataEventTypeEnum.MYSELF);
         nacosDataChangedListener.onAppAuthChanged(ImmutableList.of(appAuthData), DataEventTypeEnum.CREATE);
-        verify(configService, times(8)).publishConfig(any(String.class), any(String.class), any(String.class));
+        verify(configService, times(8)).publishConfig(any(String.class), any(String.class), any(String.class), any(String.class));
     }
 
     @Test
@@ -101,7 +101,7 @@ public class NacosDataChangedListenerTest {
         nacosDataChangedListener.onPluginChanged(ImmutableList.of(pluginData), DataEventTypeEnum.REFRESH);
         nacosDataChangedListener.onPluginChanged(ImmutableList.of(pluginData), DataEventTypeEnum.MYSELF);
         nacosDataChangedListener.onPluginChanged(ImmutableList.of(pluginData), DataEventTypeEnum.CREATE);
-        verify(configService, times(4)).publishConfig(any(String.class), any(String.class), any(String.class));
+        verify(configService, times(4)).publishConfig(any(String.class), any(String.class), any(String.class), any(String.class));
 
         when(configService.getConfig(NacosPathConstants.PLUGIN_DATA_ID, NacosPathConstants.GROUP,
                 NacosPathConstants.DEFAULT_TIME_OUT)).thenReturn(NacosPathConstants.EMPTY_CONFIG_DEFAULT_VALUE);
@@ -109,7 +109,7 @@ public class NacosDataChangedListenerTest {
         nacosDataChangedListener.onPluginChanged(ImmutableList.of(pluginData), DataEventTypeEnum.REFRESH);
         nacosDataChangedListener.onPluginChanged(ImmutableList.of(pluginData), DataEventTypeEnum.MYSELF);
         nacosDataChangedListener.onPluginChanged(ImmutableList.of(pluginData), DataEventTypeEnum.CREATE);
-        verify(configService, times(8)).publishConfig(any(String.class), any(String.class), any(String.class));
+        verify(configService, times(8)).publishConfig(any(String.class), any(String.class), any(String.class), any(String.class));
     }
 
     @Test
@@ -123,7 +123,7 @@ public class NacosDataChangedListenerTest {
         nacosDataChangedListener.onSelectorChanged(ImmutableList.of(selectorData), DataEventTypeEnum.REFRESH);
         nacosDataChangedListener.onSelectorChanged(ImmutableList.of(selectorData), DataEventTypeEnum.MYSELF);
         nacosDataChangedListener.onSelectorChanged(ImmutableList.of(selectorData), DataEventTypeEnum.CREATE);
-        verify(configService, times(4)).publishConfig(any(String.class), any(String.class), any(String.class));
+        verify(configService, times(4)).publishConfig(any(String.class), any(String.class), any(String.class), any(String.class));
 
         when(configService.getConfig(NacosPathConstants.SELECTOR_DATA_ID, NacosPathConstants.GROUP,
                 NacosPathConstants.DEFAULT_TIME_OUT)).thenReturn(NacosPathConstants.EMPTY_CONFIG_DEFAULT_VALUE);
@@ -131,7 +131,7 @@ public class NacosDataChangedListenerTest {
         nacosDataChangedListener.onSelectorChanged(ImmutableList.of(selectorData), DataEventTypeEnum.REFRESH);
         nacosDataChangedListener.onSelectorChanged(ImmutableList.of(selectorData), DataEventTypeEnum.MYSELF);
         nacosDataChangedListener.onSelectorChanged(ImmutableList.of(selectorData), DataEventTypeEnum.CREATE);
-        verify(configService, times(8)).publishConfig(any(String.class), any(String.class), any(String.class));
+        verify(configService, times(8)).publishConfig(any(String.class), any(String.class), any(String.class), any(String.class));
     }
 
     @Test
@@ -145,7 +145,7 @@ public class NacosDataChangedListenerTest {
         nacosDataChangedListener.onMetaDataChanged(ImmutableList.of(metaData), DataEventTypeEnum.REFRESH);
         nacosDataChangedListener.onMetaDataChanged(ImmutableList.of(metaData), DataEventTypeEnum.MYSELF);
         nacosDataChangedListener.onMetaDataChanged(ImmutableList.of(metaData), DataEventTypeEnum.CREATE);
-        verify(configService, times(4)).publishConfig(any(String.class), any(String.class), any(String.class));
+        verify(configService, times(4)).publishConfig(any(String.class), any(String.class), any(String.class), any(String.class));
 
         when(configService.getConfig(NacosPathConstants.META_DATA_ID, NacosPathConstants.GROUP,
                 NacosPathConstants.DEFAULT_TIME_OUT)).thenReturn(NacosPathConstants.EMPTY_CONFIG_DEFAULT_VALUE);
@@ -153,7 +153,7 @@ public class NacosDataChangedListenerTest {
         nacosDataChangedListener.onMetaDataChanged(ImmutableList.of(metaData), DataEventTypeEnum.REFRESH);
         nacosDataChangedListener.onMetaDataChanged(ImmutableList.of(metaData), DataEventTypeEnum.MYSELF);
         nacosDataChangedListener.onMetaDataChanged(ImmutableList.of(metaData), DataEventTypeEnum.CREATE);
-        verify(configService, times(8)).publishConfig(any(String.class), any(String.class), any(String.class));
+        verify(configService, times(8)).publishConfig(any(String.class), any(String.class), any(String.class), any(String.class));
     }
 
     @Test
@@ -172,7 +172,7 @@ public class NacosDataChangedListenerTest {
         nacosDataChangedListener.onRuleChanged(ImmutableList.of(ruleData), DataEventTypeEnum.REFRESH);
         nacosDataChangedListener.onRuleChanged(ImmutableList.of(ruleData), DataEventTypeEnum.MYSELF);
         nacosDataChangedListener.onRuleChanged(ImmutableList.of(ruleData), DataEventTypeEnum.CREATE);
-        verify(configService, times(4)).publishConfig(any(String.class), any(String.class), any(String.class));
+        verify(configService, times(4)).publishConfig(any(String.class), any(String.class), any(String.class), any(String.class));
 
         when(configService.getConfig(NacosPathConstants.RULE_DATA_ID, NacosPathConstants.GROUP,
                 NacosPathConstants.DEFAULT_TIME_OUT)).thenReturn(NacosPathConstants.EMPTY_CONFIG_DEFAULT_VALUE);
@@ -180,6 +180,6 @@ public class NacosDataChangedListenerTest {
         nacosDataChangedListener.onRuleChanged(ImmutableList.of(ruleData), DataEventTypeEnum.REFRESH);
         nacosDataChangedListener.onRuleChanged(ImmutableList.of(ruleData), DataEventTypeEnum.MYSELF);
         nacosDataChangedListener.onRuleChanged(ImmutableList.of(ruleData), DataEventTypeEnum.CREATE);
-        verify(configService, times(8)).publishConfig(any(String.class), any(String.class), any(String.class));
+        verify(configService, times(8)).publishConfig(any(String.class), any(String.class), any(String.class), any(String.class));
     }
 }

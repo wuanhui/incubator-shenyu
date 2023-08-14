@@ -29,8 +29,8 @@ import org.apache.shenyu.plugin.api.result.ShenyuResult;
 import org.apache.shenyu.plugin.api.utils.SpringBeanUtils;
 import org.apache.shenyu.plugin.base.utils.CacheKeyUtils;
 import org.apache.shenyu.plugin.waf.handler.WafPluginDataHandler;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.web.server.MockServerWebExchange;
@@ -38,7 +38,7 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -57,7 +57,7 @@ public final class WafPluginTest {
 
     private RuleData ruleData;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         ConfigurableApplicationContext context = mock(ConfigurableApplicationContext.class);
         when(context.getBean(ShenyuResult.class)).thenReturn(new DefaultShenyuResult());
@@ -65,7 +65,7 @@ public final class WafPluginTest {
         springBeanUtils.setApplicationContext(context);
 
         final PluginData pluginData =
-                new PluginData("pluginId", "pluginName", "{\"model\":\"mix\"}", "0", false);
+                new PluginData("pluginId", "pluginName", "{\"model\":\"mix\"}", "0", false, null);
         WafPluginDataHandler wafPluginDataHandler = new WafPluginDataHandler();
         wafPluginDataHandler.handlerPlugin(pluginData);
 
@@ -92,7 +92,7 @@ public final class WafPluginTest {
     @Test
     public void testWafPluginBlackWafModel() {
         final PluginData pluginData =
-                new PluginData("pluginId", "pluginName", "{\"model\":\"black\"}", "0", false);
+                new PluginData("pluginId", "pluginName", "{\"model\":\"black\"}", "0", false, null);
         WafPluginDataHandler wafPluginDataHandler = new WafPluginDataHandler();
         wafPluginDataHandler.handlerPlugin(pluginData);
         Mono<Void> execute = wafPluginUnderTest.doExecute(exchange, chain, null, null);

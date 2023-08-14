@@ -17,6 +17,8 @@
 
 package org.apache.shenyu.examples.https.controller;
 
+import org.apache.shenyu.client.apidocs.annotations.ApiDoc;
+import org.apache.shenyu.client.apidocs.annotations.ApiModule;
 import org.apache.shenyu.client.springmvc.annotation.ShenyuSpringMvcClient;
 import org.apache.shenyu.examples.https.dto.OrderDTO;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,7 +31,8 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/order")
-@ShenyuSpringMvcClient(path = "/order")
+@ShenyuSpringMvcClient("/order")
+@ApiModule(value = "order")
 public class OrderController {
     
     /**
@@ -39,7 +42,8 @@ public class OrderController {
      * @return the order dto
      */
     @GetMapping("/findById")
-    @ShenyuSpringMvcClient(path = "/findById", desc = "Find by id")
+    @ShenyuSpringMvcClient("/findById")
+    @ApiDoc(desc = "findById")
     public OrderDTO findById(@RequestParam("id") final String id) {
         OrderDTO dto = new OrderDTO();
         dto.setId(id);

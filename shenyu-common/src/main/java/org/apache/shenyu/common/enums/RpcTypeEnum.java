@@ -66,8 +66,12 @@ public enum RpcTypeEnum {
     /**
      * grpc.
      */
-    GRPC("grpc", true);
+    GRPC("grpc", true),
 
+    /**
+     * brpc.
+     */
+    BRPC("brpc", true);
 
     private final String name;
 
@@ -131,6 +135,14 @@ public enum RpcTypeEnum {
     }
 
     /**
+     * acquire operator support swagger type.
+     * @return operator support.
+     */
+    public static List<RpcTypeEnum> acquireSupportSwaggers() {
+        return Arrays.asList(RpcTypeEnum.HTTP, RpcTypeEnum.SPRING_CLOUD);
+    }
+
+    /**
      * acquireByName.
      *
      * @param name this is rpc type
@@ -138,7 +150,7 @@ public enum RpcTypeEnum {
      */
     public static RpcTypeEnum acquireByName(final String name) {
         return Arrays.stream(RpcTypeEnum.values())
-                .filter(e -> e.support && e.name.equals(name)).findFirst()
-                .orElseThrow(() -> new ShenyuException(String.format(" this rpc type can not support %s", name)));
+            .filter(e -> e.support && e.name.equals(name)).findFirst()
+            .orElseThrow(() -> new ShenyuException(String.format(" this rpc type can not support %s", name)));
     }
 }

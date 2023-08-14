@@ -1,11 +1,10 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -24,23 +23,24 @@ import org.apache.shenyu.admin.model.page.PageParameter;
 import org.apache.shenyu.admin.model.query.MetaDataQuery;
 import org.apache.shenyu.common.exception.ShenyuException;
 import org.aspectj.lang.ProceedingJoinPoint;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Objects;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
  * Test cases for {@link PageableAspect}.
  */
-@RunWith(MockitoJUnitRunner.Silent.class)
+@ExtendWith(MockitoExtension.class)
 public class PageableAspectTest {
 
     @InjectMocks
@@ -102,10 +102,15 @@ public class PageableAspectTest {
         page.setPages(20);
         page.setTotal(1000);
         pageableAspect.convert(page, pageParameter);
-        assertTrue(page.getPageNum() == pageParameter.getCurrentPage());
-        assertTrue(page.getPageSize() == pageParameter.getPageSize());
-        assertTrue(page.getPages() == pageParameter.getTotalPage());
-        assertTrue(page.getTotal() == pageParameter.getTotalCount());
-        assertTrue(page.getPageSize() == pageParameter.getOffset());
+        assertEquals(page.getPageNum(), pageParameter.getCurrentPage());
+        assertEquals(page.getPageSize(), pageParameter.getPageSize());
+        assertEquals(page.getPages(), pageParameter.getTotalPage());
+        assertEquals(page.getTotal(), pageParameter.getTotalCount());
+        assertEquals(page.getPageSize(), pageParameter.getOffset());
+    }
+
+    @Test
+    public void pageableCutTest() {
+        assertDoesNotThrow(() -> pageableAspect.pageableCut());
     }
 }

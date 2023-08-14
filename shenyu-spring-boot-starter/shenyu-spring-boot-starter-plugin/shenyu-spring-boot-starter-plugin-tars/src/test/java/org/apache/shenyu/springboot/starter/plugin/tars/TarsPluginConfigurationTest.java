@@ -20,17 +20,17 @@ package org.apache.shenyu.springboot.starter.plugin.tars;
 import org.apache.shenyu.common.enums.PluginEnum;
 import org.apache.shenyu.plugin.api.ShenyuPlugin;
 import org.apache.shenyu.plugin.api.context.ShenyuContextDecorator;
+import org.apache.shenyu.plugin.base.handler.MetaDataHandler;
 import org.apache.shenyu.plugin.base.handler.PluginDataHandler;
-import org.apache.shenyu.sync.data.api.MetaDataSubscriber;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Configuration;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
  * Test case for {@link TarsPluginConfiguration}.
@@ -41,7 +41,7 @@ public class TarsPluginConfigurationTest {
 
     private ApplicationContextRunner applicationContextRunner;
 
-    @Before
+    @BeforeEach
     public void before() {
         applicationContextRunner = new ApplicationContextRunner()
             .withConfiguration(AutoConfigurations.of(TarsPluginConfiguration.class))
@@ -60,10 +60,10 @@ public class TarsPluginConfigurationTest {
     }
 
     @Test
-    public void testTarsMetaDataSubscriber() {
+    public void testTarsMetaDataHandler() {
         applicationContextRunner.run(context -> {
-                MetaDataSubscriber subscriber = context.getBean("tarsMetaDataSubscriber", MetaDataSubscriber.class);
-                assertNotNull(subscriber);
+                MetaDataHandler handler = context.getBean("tarsMetaDataHandler", MetaDataHandler.class);
+                assertNotNull(handler);
             }
         );
     }

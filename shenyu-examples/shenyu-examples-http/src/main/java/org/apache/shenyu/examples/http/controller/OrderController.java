@@ -17,6 +17,8 @@
 
 package org.apache.shenyu.examples.http.controller;
 
+import org.apache.shenyu.client.apidocs.annotations.ApiDoc;
+import org.apache.shenyu.client.apidocs.annotations.ApiModule;
 import org.apache.shenyu.client.springmvc.annotation.ShenyuSpringMvcClient;
 import org.apache.shenyu.examples.http.dto.OAuth2DTO;
 import org.apache.shenyu.examples.http.dto.OrderDTO;
@@ -38,7 +40,8 @@ import java.util.Objects;
  */
 @RestController
 @RequestMapping("/order")
-@ShenyuSpringMvcClient(path = "/order")
+@ShenyuSpringMvcClient("/order")
+@ApiModule(value = "order")
 public class OrderController {
 
     /**
@@ -48,7 +51,8 @@ public class OrderController {
      * @return the order dto
      */
     @PostMapping("/save")
-    @ShenyuSpringMvcClient(path = "/save", desc = "Save order")
+    @ShenyuSpringMvcClient("/save")
+    @ApiDoc(desc = "save")
     public OrderDTO save(@RequestBody final OrderDTO orderDTO) {
         orderDTO.setName("hello world save order");
         return orderDTO;
@@ -61,7 +65,8 @@ public class OrderController {
      * @return the order dto
      */
     @GetMapping("/findById")
-    @ShenyuSpringMvcClient(path = "/findById", desc = "Find by id")
+    @ShenyuSpringMvcClient("/findById")
+    @ApiDoc(desc = "findById")
     public OrderDTO findById(@RequestParam("id") final String id) {
         return build(id, "hello world findById");
     }
@@ -74,25 +79,33 @@ public class OrderController {
      * @return the path variable
      */
     @GetMapping("/path/{id}/{name}")
-    @ShenyuSpringMvcClient(path = "/path/**")
+    @ShenyuSpringMvcClient("/path/**")
+    @ApiDoc(desc = "path/**")
     public OrderDTO getPathVariable(@PathVariable("id") final String id, @PathVariable("name") final String name) {
         return build(id, "hello world restful: " + name);
     }
 
     /**
-     * Test rest ful order dto.
+     * Test restful order dto.
      *
      * @param id the id
      * @return the order dto
      */
     @GetMapping("/path/{id}/name")
-    @ShenyuSpringMvcClient(path = "/path/**/name")
+    @ShenyuSpringMvcClient("/path/**/name")
+    @ApiDoc(desc = "path/**/name")
     public OrderDTO testRestFul(@PathVariable("id") final String id) {
         return build(id, "hello world restful inline " + id);
     }
 
+    /**
+     * Test oauth2 request.
+     * @param request request with the oauth2 headers
+     * @return the oauth2 dto
+     */
     @GetMapping("/oauth2/test")
-    @ShenyuSpringMvcClient(path = "/oauth2/test")
+    @ShenyuSpringMvcClient("/oauth2/test")
+    @ApiDoc(desc = "oauth2/test")
     public OAuth2DTO testRestFul(final ServerHttpRequest request) {
         HttpHeaders headers = request.getHeaders();
         List<String> tokens = headers.get("Authorization");

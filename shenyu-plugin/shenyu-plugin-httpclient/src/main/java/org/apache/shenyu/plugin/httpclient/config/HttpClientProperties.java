@@ -17,11 +17,13 @@
 
 package org.apache.shenyu.plugin.httpclient.config;
 
+import io.netty.handler.ssl.SslProvider;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.shenyu.common.exception.ShenyuException;
 import org.springframework.util.ResourceUtils;
+import reactor.netty.ReactorNetty;
 import reactor.netty.resources.ConnectionProvider;
-import reactor.netty.tcp.SslProvider;
+import reactor.netty.resources.LoopResources;
 
 import javax.net.ssl.KeyManagerFactory;
 import java.io.IOException;
@@ -45,14 +47,19 @@ import java.util.Optional;
 public class HttpClientProperties {
 
     /**
-     * The connect timeout in millis, the default is 45s.
+     * the http client strategy.
+     */
+    private String strategy;
+
+    /**
+     * The connection timeout in millis, the default is 45s.
      */
     private Integer connectTimeout = 45000;
 
     /**
      * The response timeout.
      */
-    private Duration responseTimeout = Duration.ofMillis(3000);
+    private Long responseTimeout = 3000L;
 
     /**
      * readerIdleTime, the default is 3s.
@@ -85,6 +92,11 @@ public class HttpClientProperties {
     private Pool pool = new Pool();
 
     /**
+     * ThreadPool configuration for Netty HttpClient.
+     */
+    private ThreadPool threadPool = new ThreadPool();
+
+    /**
      * Proxy configuration for Netty HttpClient.
      */
     private Proxy proxy = new Proxy();
@@ -98,11 +110,39 @@ public class HttpClientProperties {
      * Enables wiretap debugging for Netty HttpClient.
      */
     private boolean wiretap;
-    
+
+    /**
+     * set to false, fix java.io.IOException: Connection reset by peer, see https://github.com/reactor/reactor-netty/issues/388.
+     */
+    private boolean keepAlive;
+
+    /**
+     * body max memory size, unit mb.
+     */
+    private Integer maxInMemorySize = 1;
+
+    /**
+     * Gets strategy.
+     *
+     * @return to strategy
+     */
+    public String getStrategy() {
+        return strategy;
+    }
+
+    /**
+     * Sets strategy.
+     *
+     * @param strategy to strategy
+     */
+    public void setStrategy(final String strategy) {
+        this.strategy = strategy;
+    }
+
     /**
      * Gets connect timeout.
      *
-     * @return the connect timeout
+     * @return to connect timeout
      */
     public Integer getConnectTimeout() {
         return connectTimeout;
@@ -111,7 +151,7 @@ public class HttpClientProperties {
     /**
      * Sets connect timeout.
      *
-     * @param connectTimeout the connect timeout
+     * @param connectTimeout to connect timeout
      */
     public void setConnectTimeout(final Integer connectTimeout) {
         this.connectTimeout = connectTimeout;
@@ -123,7 +163,8 @@ public class HttpClientProperties {
      * @return the response timeout
      */
     public Duration getResponseTimeout() {
-        return responseTimeout;
+        return Optional.ofNullable(responseTimeout)
+                .map(it -> Duration.ofMillis(responseTimeout)).orElse(Duration.ofMillis(3000));
     }
     
     /**
@@ -131,7 +172,7 @@ public class HttpClientProperties {
      *
      * @param responseTimeout the response timeout
      */
-    public void setResponseTimeout(final Duration responseTimeout) {
+    public void setResponseTimeout(final Long responseTimeout) {
         this.responseTimeout = responseTimeout;
     }
     
@@ -242,7 +283,25 @@ public class HttpClientProperties {
     public void setPool(final Pool pool) {
         this.pool = pool;
     }
-    
+
+    /**
+     * Gets thread pool.
+     *
+     * @return the thread pool
+     */
+    public ThreadPool getThreadPool() {
+        return threadPool;
+    }
+
+    /**
+     * Sets thread pool.
+     *
+     * @param threadPool the thread pool
+     */
+    public void setThreadPool(final ThreadPool threadPool) {
+        this.threadPool = threadPool;
+    }
+
     /**
      * Gets proxy.
      *
@@ -296,7 +355,41 @@ public class HttpClientProperties {
     public void setWiretap(final boolean wiretap) {
         this.wiretap = wiretap;
     }
-    
+
+    /**
+     * Is keepAlive boolean.
+     *
+     * @return the boolean
+     */
+    public boolean isKeepAlive() {
+        return keepAlive;
+    }
+
+    /**
+     * Sets keepAlive.
+     *
+     * @param keepAlive the keepAlive
+     */
+    public void setKeepAlive(final boolean keepAlive) {
+        this.keepAlive = keepAlive;
+    }
+
+    /**
+     * get maxInMemorySize.
+     * @return maxInMemorySize
+     */
+    public Integer getMaxInMemorySize() {
+        return maxInMemorySize;
+    }
+
+    /**
+     * set maxInMemorySize.
+     * @param maxInMemorySize maxInMemorySize
+     */
+    public void setMaxInMemorySize(final Integer maxInMemorySize) {
+        this.maxInMemorySize = maxInMemorySize;
+    }
+
     /**
      * The type Pool.
      */
@@ -322,7 +415,13 @@ public class HttpClientProperties {
          * Only for type FIXED, the maximum time in millis to wait for aquiring.
          */
         private Long acquireTimeout = ConnectionProvider.DEFAULT_POOL_ACQUIRE_TIMEOUT;
-    
+
+        /**
+         * Time in millis after which the channel will be closed,
+         * if NULL there is no max idle time.
+         */
+        private Long maxIdleTime;
+
         /**
          * Gets type.
          *
@@ -394,7 +493,26 @@ public class HttpClientProperties {
         public void setAcquireTimeout(final Long acquireTimeout) {
             this.acquireTimeout = acquireTimeout;
         }
-    
+
+        /**
+         * Gets maxIdleTime timeout.
+         *
+         * @return the maxIdleTime timeout
+         */
+        public Duration getMaxIdleTime() {
+            return Optional.ofNullable(maxIdleTime)
+                    .map(it -> Duration.ofMillis(maxIdleTime)).orElse(Duration.ofMillis(3000L));
+        }
+
+        /**
+         * Sets maxIdleTime timeout.
+         *
+         * @param maxIdleTime the maxIdleTime timeout
+         */
+        public void setMaxIdleTime(final Long maxIdleTime) {
+            this.maxIdleTime = maxIdleTime;
+        }
+        
         /**
          * The enum Pool type.
          */
@@ -414,6 +532,104 @@ public class HttpClientProperties {
              * Disabled pool type.
              */
             DISABLED
+        }
+    }
+
+    /**
+     * The type Thread Pool.
+     */
+    public static class ThreadPool {
+
+        /**
+         * The the event loop thread name prefix, defaults to shenyu.
+         */
+        private String prefix = "shenyu";
+
+        /**
+         * The selector thread count, defaults to 1.
+         */
+        private Integer selectCount = Integer.parseInt(System.getProperty(ReactorNetty.IO_SELECT_COUNT, "1"));
+
+        /**
+         * The worker thread count, defaults to available processor (but with a minimum value of 4).
+         */
+        private Integer workerCount = LoopResources.DEFAULT_IO_WORKER_COUNT;
+
+        /**
+         * Whether the thread created by the thread pool is a daemon thread.
+         */
+        private Boolean daemon = true;
+
+        /**
+         * Gets prefix.
+         *
+         * @return the prefix
+         */
+        public String getPrefix() {
+            return prefix;
+        }
+
+        /**
+         * Sets prefix.
+         *
+         * @param prefix the prefix
+         */
+        public void setPrefix(final String prefix) {
+            this.prefix = prefix;
+        }
+
+        /**
+         * Gets select count.
+         *
+         * @return the select count
+         */
+        public Integer getSelectCount() {
+            return selectCount;
+        }
+
+        /**
+         * Sets select count.
+         *
+         * @param selectCount the select count
+         */
+        public void setSelectCount(final Integer selectCount) {
+            this.selectCount = selectCount;
+        }
+
+        /**
+         * Gets worker count.
+         *
+         * @return the worker count
+         */
+        public Integer getWorkerCount() {
+            return workerCount;
+        }
+
+        /**
+         * Sets worker count.
+         *
+         * @param workerCount the worker count
+         */
+        public void setWorkerCount(final Integer workerCount) {
+            this.workerCount = workerCount;
+        }
+
+        /**
+         * Gets daemon.
+         *
+         * @return the daemon
+         */
+        public Boolean getDaemon() {
+            return daemon;
+        }
+
+        /**
+         * Sets daemon.
+         *
+         * @param daemon the daemon
+         */
+        public void setDaemon(final Boolean daemon) {
+            this.daemon = daemon;
         }
     }
     
@@ -594,9 +810,9 @@ public class HttpClientProperties {
         private String keyPassword;
 
         /**
-         * The default ssl configuration type. Defaults to TCP.
+         * The default ssl configuration type. Defaults to JDK Provider.
          */
-        private SslProvider.DefaultConfigurationType defaultConfigurationType = SslProvider.DefaultConfigurationType.TCP;
+        private SslProvider defaultConfigurationType = SslProvider.JDK;
     
         /**
          * Is use insecure trust manager boolean.
@@ -693,7 +909,7 @@ public class HttpClientProperties {
          *
          * @return the default configuration type
          */
-        public SslProvider.DefaultConfigurationType getDefaultConfigurationType() {
+        public SslProvider getDefaultConfigurationType() {
             return defaultConfigurationType;
         }
     
@@ -702,7 +918,7 @@ public class HttpClientProperties {
          *
          * @param defaultConfigurationType the default configuration type
          */
-        public void setDefaultConfigurationType(final SslProvider.DefaultConfigurationType defaultConfigurationType) {
+        public void setDefaultConfigurationType(final SslProvider defaultConfigurationType) {
             this.defaultConfigurationType = defaultConfigurationType;
         }
     

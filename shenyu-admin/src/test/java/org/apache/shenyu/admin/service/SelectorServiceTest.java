@@ -20,7 +20,6 @@ package org.apache.shenyu.admin.service;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.shenyu.admin.mapper.DataPermissionMapper;
 import org.apache.shenyu.admin.mapper.PluginMapper;
-import org.apache.shenyu.admin.mapper.RuleConditionMapper;
 import org.apache.shenyu.admin.mapper.RuleMapper;
 import org.apache.shenyu.admin.mapper.SelectorConditionMapper;
 import org.apache.shenyu.admin.mapper.SelectorMapper;
@@ -38,19 +37,20 @@ import org.apache.shenyu.admin.model.query.SelectorQuery;
 import org.apache.shenyu.admin.model.vo.SelectorConditionVO;
 import org.apache.shenyu.admin.model.vo.SelectorVO;
 import org.apache.shenyu.admin.service.impl.SelectorServiceImpl;
-import org.apache.shenyu.admin.service.impl.UpstreamCheckService;
+import org.apache.shenyu.admin.service.publish.SelectorEventPublisher;
 import org.apache.shenyu.admin.utils.JwtUtils;
 import org.apache.shenyu.common.dto.SelectorData;
-import org.apache.shenyu.common.enums.PluginEnum;
 import org.apache.shenyu.common.enums.SelectorTypeEnum;
 import org.apache.shenyu.register.common.dto.MetaDataRegisterDTO;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.mockito.stubbing.Answer;
 import org.springframework.context.ApplicationEventPublisher;
 
@@ -63,11 +63,11 @@ import java.util.Random;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.notNullValue;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -79,7 +79,8 @@ import static org.mockito.Mockito.when;
 /**
  * Test cases for SelectorService.
  */
-@RunWith(MockitoJUnitRunner.class)
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 public final class SelectorServiceTest {
 
     @InjectMocks
@@ -98,22 +99,18 @@ public final class SelectorServiceTest {
     private RuleMapper ruleMapper;
 
     @Mock
-    private RuleConditionMapper ruleConditionMapper;
-
-    @Mock
     private DataPermissionMapper dataPermissionMapper;
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
 
     @Mock
-    private UpstreamCheckService upstreamCheckService;
+    private SelectorEventPublisher selectorEventPublisher;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         when(dataPermissionMapper.listByUserId("1")).thenReturn(Collections.singletonList(DataPermissionDO.buildPermissionDO(new DataPermissionDTO())));
-        selectorService = new SelectorServiceImpl(selectorMapper, selectorConditionMapper, pluginMapper,
-                ruleMapper, ruleConditionMapper, eventPublisher, dataPermissionMapper, upstreamCheckService);
+        selectorService = new SelectorServiceImpl(selectorMapper, selectorConditionMapper, pluginMapper, eventPublisher, selectorEventPublisher);
     }
 
     @Test
@@ -135,18 +132,18 @@ public final class SelectorServiceTest {
         final String correctId = "456";
 
         // mock basic objects for delete.
-        SelectorDO mockedSelectorDO = mock(SelectorDO.class);
-        PluginDO mockedPluginDO = mock(PluginDO.class);
-        when(pluginMapper.selectByIds(Collections.singletonList(mockedSelectorDO.getPluginId()))).thenReturn(Collections.singletonList(mockedPluginDO));
-        when(selectorMapper.selectByIdSet(Stream.of(correctId).collect(Collectors.toSet()))).thenReturn(Collections.singletonList(mockedSelectorDO));
+        SelectorDO mockedSelectorDO = buildSelectorDO();
+        PluginDO mockedPluginDO = buildPluginDO();
+        given(pluginMapper.selectByIds(Collections.singletonList(mockedSelectorDO.getPluginId()))).willReturn(Collections.singletonList(mockedPluginDO));
+        given(selectorMapper.selectByIdSet(Stream.of(correctId).collect(Collectors.toSet()))).willReturn(Collections.singletonList(mockedSelectorDO));
 
         // mock for test if divide selector delete.
-        when(mockedPluginDO.getName()).thenReturn(PluginEnum.DIVIDE.getName());
-        when(mockedSelectorDO.getName()).thenReturn("anyString");
+//        when(mockedPluginDO.getName()).thenReturn(PluginEnum.DIVIDE.getName());
+//        when(mockedSelectorDO.getName()).thenReturn("anyString");
 
         // mock objects for test delete rule and ruleCondition.
         List<RuleDO> mockedRuleDOList = mock(List.class);
-        when(ruleMapper.findBySelectorIds(Collections.singletonList(correctId))).thenReturn(mockedRuleDOList);
+        given(ruleMapper.findBySelectorIds(Collections.singletonList(correctId))).willReturn(mockedRuleDOList);
 
         // mock for test for-each statement.
 //        RuleDO mockedRuleDo = mock(RuleDO.class);
@@ -154,7 +151,8 @@ public final class SelectorServiceTest {
 //        when(ruleConditionMapper.deleteByRuleIds(Collections.singletonList(mockedRuleDo.getId()))).thenReturn(1);
 
         final List<String> ids = Collections.singletonList(correctId);
-        assertEquals(this.selectorService.delete(ids), ids.size());
+        given(selectorMapper.deleteByIds(ids)).willReturn(ids.size());
+        assertEquals(selectorService.delete(ids), ids.size());
     }
 
     @Test
@@ -168,14 +166,15 @@ public final class SelectorServiceTest {
         List<SelectorConditionVO> selectorConditions = selectorVO.getSelectorConditions();
         selectorConditions.forEach(selectorConditionVO -> assertEquals(selectorConditionVO.getSelectorId(), selectorDO.getId()));
     }
-
+    
     @Test
     public void testFindByName() {
-        SelectorDO selectorDO1 = buildSelectorDO();
-        given(this.selectorMapper.selectByName(eq("kuan"))).willReturn(selectorDO1);
+        List<SelectorDO> selectorDO1List = Collections.singletonList(buildSelectorDO());
+        given(this.selectorMapper.selectByName(eq("kuan"))).willReturn(selectorDO1List);
         SelectorDO selectorDO2 = this.selectorService.findByName("kuan");
         assertNotNull(selectorDO2);
-        assertEquals(selectorDO1.getId(), selectorDO2.getId());
+        assertEquals(selectorDO1List.size(), 1);
+        assertEquals(selectorDO1List.get(0).getId(), selectorDO2.getId());
     }
 
     @Test
@@ -183,7 +182,7 @@ public final class SelectorServiceTest {
         final List<SelectorDO> selectorDOs = buildSelectorDOList();
         given(this.selectorMapper.selectByQuery(any())).willReturn(selectorDOs);
         SelectorQuery params = buildSelectorQuery();
-        final CommonPager<SelectorVO> result = this.selectorService.listByPage(params);
+        final CommonPager<SelectorVO> result = this.selectorService.listByPageWithPermission(params);
         assertThat(result, notNullValue());
         assertEquals(selectorDOs.size(), result.getDataList().size());
     }
@@ -199,6 +198,7 @@ public final class SelectorServiceTest {
     public void testListAll() {
         final List<SelectorDO> selectorDOs = buildSelectorDOList();
         given(this.selectorMapper.selectAll()).willReturn(selectorDOs);
+        given(this.pluginMapper.selectByIds(any())).willReturn(Collections.singletonList(buildPluginDO()));
         List<SelectorData> dataList = this.selectorService.listAll();
         assertNotNull(dataList);
         assertEquals(selectorDOs.size(), dataList.size());

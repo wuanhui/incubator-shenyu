@@ -17,20 +17,33 @@
 
 package org.apache.shenyu.register.client.etcd;
 
+import io.etcd.jetcd.Client;
+import io.etcd.jetcd.ClientBuilder;
+import io.etcd.jetcd.Lease;
+import io.etcd.jetcd.lease.LeaseGrantResponse;
+import org.apache.shenyu.common.exception.ShenyuException;
 import org.apache.shenyu.common.utils.GsonUtils;
+import org.apache.shenyu.register.common.config.ShenyuRegisterCenterConfig;
 import org.apache.shenyu.register.common.dto.MetaDataRegisterDTO;
 import org.apache.shenyu.register.common.dto.URIRegisterDTO;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
 
 import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.when;
 
 /**
  * test for EtcdClientRegisterRepository.
@@ -41,7 +54,7 @@ public class EtcdClientRegisterRepositoryTest {
 
     private final Map<String, String> etcdBroker = new HashMap<>();
 
-    @Before
+    @BeforeEach
     public void setUp() throws IllegalAccessException, NoSuchFieldException {
         this.repository = new EtcdClientRegisterRepository();
         Class<? extends EtcdClientRegisterRepository> clazz = this.repository.getClass();
@@ -83,9 +96,9 @@ public class EtcdClientRegisterRepositoryTest {
 
         repository.persistInterface(data);
         String metadataPath = "/shenyu/register/metadata/http/context/context-ruleName";
-        Assert.assertTrue(etcdBroker.containsKey(metadataPath));
-        Assert.assertEquals(etcdBroker.get(metadataPath), GsonUtils.getInstance().toJson(data));
-        repository.close();
+        assertTrue(etcdBroker.containsKey(metadataPath));
+        assertEquals(etcdBroker.get(metadataPath), GsonUtils.getInstance().toJson(data));
+        repository.closeRepository();
     }
     
     @Test
@@ -98,8 +111,8 @@ public class EtcdClientRegisterRepositoryTest {
                 .build();
         repository.persistURI(data);
         String uriPath = "/shenyu/register/uri/http/context/host:80";
-        Assert.assertTrue(etcdBroker.containsKey(uriPath));
-        Assert.assertEquals(etcdBroker.get(uriPath), GsonUtils.getInstance().toJson(data));
+        assertTrue(etcdBroker.containsKey(uriPath));
+        assertEquals(etcdBroker.get(uriPath), GsonUtils.getInstance().toJson(data));
     }
 
     @Test
@@ -116,8 +129,31 @@ public class EtcdClientRegisterRepositoryTest {
 
         repository.persistInterface(data);
         String metadataPath = "/shenyu/register/metadata/grpc/context/testService.testMethod";
-        Assert.assertTrue(etcdBroker.containsKey(metadataPath));
-        Assert.assertEquals(etcdBroker.get(metadataPath), GsonUtils.getInstance().toJson(data));
-        repository.close();
+        assertTrue(etcdBroker.containsKey(metadataPath));
+        assertEquals(etcdBroker.get(metadataPath), GsonUtils.getInstance().toJson(data));
+        repository.closeRepository();
+    }
+
+    @Test
+    public void initTest() {
+        try (MockedStatic<Client> clientMockedStatic = mockStatic(Client.class)) {
+            final ClientBuilder clientBuilder = mock(ClientBuilder.class);
+            clientMockedStatic.when(Client::builder).thenReturn(clientBuilder);
+            when(clientBuilder.endpoints(anyString())).thenReturn(clientBuilder);
+            final Client client = mock(Client.class);
+            when(clientBuilder.endpoints(anyString()).build()).thenReturn(client);
+            final Lease lease = mock(Lease.class);
+            when(client.getLeaseClient()).thenReturn(lease);
+            final CompletableFuture<LeaseGrantResponse> completableFuture = mock(CompletableFuture.class);
+            final LeaseGrantResponse leaseGrantResponse = mock(LeaseGrantResponse.class);
+
+            when(client.getLeaseClient().grant(anyLong())).thenReturn(completableFuture);
+            when(completableFuture.get()).thenReturn(leaseGrantResponse);
+            ShenyuRegisterCenterConfig config = new ShenyuRegisterCenterConfig();
+            config.setServerLists("url");
+            Assertions.assertDoesNotThrow(() -> new EtcdClientRegisterRepository(config));
+        } catch (Exception e) {
+            throw new ShenyuException(e.getCause());
+        }
     }
 }

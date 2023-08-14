@@ -18,40 +18,53 @@
 package org.apache.shenyu.admin.controller;
 
 import org.apache.shenyu.admin.exception.ExceptionHandlers;
+import org.apache.shenyu.admin.mapper.RuleMapper;
+import org.apache.shenyu.admin.mapper.SelectorMapper;
+import org.apache.shenyu.admin.model.custom.UserInfo;
 import org.apache.shenyu.admin.model.dto.RuleConditionDTO;
 import org.apache.shenyu.admin.model.dto.RuleDTO;
 import org.apache.shenyu.admin.model.page.CommonPager;
 import org.apache.shenyu.admin.model.page.PageParameter;
-import org.apache.shenyu.admin.model.query.RuleQuery;
-import org.apache.shenyu.admin.service.RuleService;
-import org.apache.shenyu.admin.utils.ShenyuResultMessage;
 import org.apache.shenyu.admin.model.vo.RuleConditionVO;
 import org.apache.shenyu.admin.model.vo.RuleVO;
+import org.apache.shenyu.admin.service.RuleService;
+import org.apache.shenyu.admin.spring.SpringBeanUtils;
+import org.apache.shenyu.admin.utils.SessionUtil;
+import org.apache.shenyu.admin.utils.ShenyuResultMessage;
 import org.apache.shenyu.common.utils.DateUtils;
 import org.apache.shenyu.common.utils.GsonUtils;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+
 import static org.hamcrest.core.Is.is;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * Test case for RuleController.
  */
-@RunWith(MockitoJUnitRunner.class)
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 public final class RuleControllerTest {
 
     private MockMvc mockMvc;
@@ -61,6 +74,12 @@ public final class RuleControllerTest {
 
     @Mock
     private RuleService ruleService;
+    
+    @Mock
+    private RuleMapper ruleMapper;
+    
+    @Mock
+    private SelectorMapper selectorMapper;
 
     private final RuleConditionVO rCondition1 = new RuleConditionVO(
             "888", "666", "uri", "Uniform", "match", "match", "/", "/http/test/**", DateUtils.localDateTimeToString(LocalDateTime.now()), DateUtils.localDateTimeToString(LocalDateTime.now())
@@ -68,31 +87,33 @@ public final class RuleControllerTest {
 
     private final List<RuleConditionVO> rcList = new ArrayList<>(Collections.singletonList(rCondition1));
 
-    private final RuleVO ruleVO = new RuleVO("666", "168", 0, "zero mode", "/http/test/**", true, true, 1, "{\"loadBalance\":\"random\",\"retry\":0,\"timeout\":3000}",
+    private final RuleVO ruleVO = new RuleVO("666", "168", 0, "zero mode", "/http/test/**", true, true, 1, "{\"loadBalance\":\"random\",\"retry\":0,\"timeout\":3000}", false,
             rcList, DateUtils.localDateTimeToString(LocalDateTime.now()), DateUtils.localDateTimeToString(LocalDateTime.now()));
-
-    private final PageParameter pageParameter = new PageParameter();
-
-    private final RuleQuery tRuleQuery = new RuleQuery("168", "/http/test/**", pageParameter);
-
+    
     private final CommonPager<RuleVO> commonPager = new CommonPager<>(new PageParameter(), Collections.singletonList(ruleVO));
 
-    @Before
+    @BeforeEach
     public void setUp() {
         this.mockMvc = MockMvcBuilders.standaloneSetup(ruleController)
-                .setControllerAdvice(new ExceptionHandlers())
+                .setControllerAdvice(new ExceptionHandlers(null))
                 .build();
+        // mock login user
+        final UserInfo mockLoginUser = new UserInfo();
+        mockLoginUser.setUserId("1");
+        mockLoginUser.setUserName("admin");
+        SessionUtil.setLocalVisitor(mockLoginUser);
     }
 
     @Test
     public void testQueryRules() throws Exception {
-        given(this.ruleService.listByPage(tRuleQuery)).willReturn(commonPager);
+        given(this.ruleService.searchByPageToPager(any())).willReturn(commonPager);
         String urlTemplate = "/rule?selectorId={selectorId}&name={name}&currentPage={currentPage}&pageSize={pageSize}";
         this.mockMvc.perform(MockMvcRequestBuilders.get(urlTemplate, "168", "/http/test/**", 1, 12))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message", is(ShenyuResultMessage.QUERY_SUCCESS)))
                 .andExpect(jsonPath("$.data.dataList[0].id", is(ruleVO.getId())))
                 .andReturn();
+
     }
 
     @Test
@@ -126,10 +147,16 @@ public final class RuleControllerTest {
                 .name("/http/order/save")
                 .enabled(true)
                 .loged(true)
+                .matchRestful(false)
                 .sort(1)
                 .handle("{\"loadBalance\":\"random\",\"retry\":0,\"timeout\":3000}")
                 .ruleConditions(conList)
                 .build();
+        SpringBeanUtils.getInstance().setApplicationContext(mock(ConfigurableApplicationContext.class));
+        when(SpringBeanUtils.getInstance().getBean(RuleMapper.class)).thenReturn(ruleMapper);
+        when(ruleMapper.existed(ruleDTO.getId())).thenReturn(true);
+        when(SpringBeanUtils.getInstance().getBean(SelectorMapper.class)).thenReturn(selectorMapper);
+        when(selectorMapper.existed(ruleDTO.getSelectorId())).thenReturn(true);
         given(this.ruleService.createOrUpdate(ruleDTO)).willReturn(1);
         this.mockMvc.perform(MockMvcRequestBuilders.post("/rule", ruleDTO)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -160,11 +187,16 @@ public final class RuleControllerTest {
                 .name("/http/order/update")
                 .enabled(true)
                 .loged(true)
+                .matchRestful(false)
                 .sort(1)
                 .handle("{\"loadBalance\":\"random\",\"retry\":0,\"timeout\":3000}")
                 .ruleConditions(conList)
                 .build();
-
+        SpringBeanUtils.getInstance().setApplicationContext(mock(ConfigurableApplicationContext.class));
+        when(SpringBeanUtils.getInstance().getBean(RuleMapper.class)).thenReturn(ruleMapper);
+        when(ruleMapper.existed(ruleDTO.getId())).thenReturn(true);
+        when(SpringBeanUtils.getInstance().getBean(SelectorMapper.class)).thenReturn(selectorMapper);
+        when(selectorMapper.existed(ruleDTO.getSelectorId())).thenReturn(true);
         given(this.ruleService.createOrUpdate(ruleDTO)).willReturn(1);
         this.mockMvc.perform(MockMvcRequestBuilders.put("/rule/{id}", "666")
                         .contentType(MediaType.APPLICATION_JSON)

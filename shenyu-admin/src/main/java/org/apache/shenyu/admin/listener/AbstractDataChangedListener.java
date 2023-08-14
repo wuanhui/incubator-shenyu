@@ -17,23 +17,26 @@
 
 package org.apache.shenyu.admin.listener;
 
-import com.google.gson.reflect.TypeToken;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.shenyu.admin.service.AppAuthService;
 import org.apache.shenyu.admin.service.MetaDataService;
 import org.apache.shenyu.admin.service.PluginService;
 import org.apache.shenyu.admin.service.RuleService;
 import org.apache.shenyu.admin.service.SelectorService;
+import org.apache.shenyu.admin.service.ProxySelectorService;
+import org.apache.shenyu.admin.service.DiscoveryUpstreamService;
 import org.apache.shenyu.common.dto.AppAuthData;
 import org.apache.shenyu.common.dto.ConfigData;
 import org.apache.shenyu.common.dto.MetaData;
 import org.apache.shenyu.common.dto.PluginData;
 import org.apache.shenyu.common.dto.RuleData;
 import org.apache.shenyu.common.dto.SelectorData;
+import org.apache.shenyu.common.dto.DiscoverySyncData;
+import org.apache.shenyu.common.dto.ProxySelectorData;
 import org.apache.shenyu.common.enums.ConfigGroupEnum;
 import org.apache.shenyu.common.enums.DataEventTypeEnum;
 import org.apache.shenyu.common.utils.GsonUtils;
-import org.apache.shenyu.common.utils.Md5Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
@@ -52,7 +55,6 @@ import java.util.concurrent.ConcurrentMap;
  *
  * @since 2.0.0
  */
-@SuppressWarnings("all")
 public abstract class AbstractDataChangedListener implements DataChangedListener, InitializingBean {
 
     /**
@@ -83,8 +85,17 @@ public abstract class AbstractDataChangedListener implements DataChangedListener
     @Resource
     private SelectorService selectorService;
 
+    /**
+     * The MetaData service.
+     */
     @Resource
     private MetaDataService metaDataService;
+
+    @Resource
+    private ProxySelectorService proxySelectorService;
+
+    @Resource
+    private DiscoveryUpstreamService discoveryUpstreamService;
 
     /**
      * fetch configuration from cache.
@@ -96,25 +107,19 @@ public abstract class AbstractDataChangedListener implements DataChangedListener
         ConfigDataCache config = CACHE.get(groupKey.name());
         switch (groupKey) {
             case APP_AUTH:
-                List<AppAuthData> appAuthList = GsonUtils.getGson().fromJson(config.getJson(), new TypeToken<List<AppAuthData>>() {
-                }.getType());
-                return new ConfigData<>(config.getMd5(), config.getLastModifyTime(), appAuthList);
+                return buildConfigData(config, AppAuthData.class);
             case PLUGIN:
-                List<PluginData> pluginList = GsonUtils.getGson().fromJson(config.getJson(), new TypeToken<List<PluginData>>() {
-                }.getType());
-                return new ConfigData<>(config.getMd5(), config.getLastModifyTime(), pluginList);
+                return buildConfigData(config, PluginData.class);
             case RULE:
-                List<RuleData> ruleList = GsonUtils.getGson().fromJson(config.getJson(), new TypeToken<List<RuleData>>() {
-                }.getType());
-                return new ConfigData<>(config.getMd5(), config.getLastModifyTime(), ruleList);
+                return buildConfigData(config, RuleData.class);
             case SELECTOR:
-                List<SelectorData> selectorList = GsonUtils.getGson().fromJson(config.getJson(), new TypeToken<List<SelectorData>>() {
-                }.getType());
-                return new ConfigData<>(config.getMd5(), config.getLastModifyTime(), selectorList);
+                return buildConfigData(config, SelectorData.class);
             case META_DATA:
-                List<MetaData> metaList = GsonUtils.getGson().fromJson(config.getJson(), new TypeToken<List<MetaData>>() {
-                }.getType());
-                return new ConfigData<>(config.getMd5(), config.getLastModifyTime(), metaList);
+                return buildConfigData(config, MetaData.class);
+            case PROXY_SELECTOR:
+                return buildConfigData(config, ProxySelectorData.class);
+            case DISCOVER_UPSTREAM:
+                return buildConfigData(config, DiscoverySyncData.class);
             default:
                 throw new IllegalStateException("Unexpected groupKey: " + groupKey);
         }
@@ -127,6 +132,15 @@ public abstract class AbstractDataChangedListener implements DataChangedListener
         }
         this.updateAppAuthCache();
         this.afterAppAuthChanged(changed, eventType);
+    }
+
+    /**
+     * After app auth changed.
+     *
+     * @param changed   the changed
+     * @param eventType the event type
+     */
+    protected void afterAppAuthChanged(final List<AppAuthData> changed, final DataEventTypeEnum eventType) {
     }
 
     @Override
@@ -147,15 +161,6 @@ public abstract class AbstractDataChangedListener implements DataChangedListener
     protected void afterMetaDataChanged(final List<MetaData> changed, final DataEventTypeEnum eventType) {
     }
 
-    /**
-     * After app auth changed.
-     *
-     * @param changed   the changed
-     * @param eventType the event type
-     */
-    protected void afterAppAuthChanged(final List<AppAuthData> changed, final DataEventTypeEnum eventType) {
-    }
-
     @Override
     public void onPluginChanged(final List<PluginData> changed, final DataEventTypeEnum eventType) {
         if (CollectionUtils.isEmpty(changed)) {
@@ -164,7 +169,7 @@ public abstract class AbstractDataChangedListener implements DataChangedListener
         this.updatePluginCache();
         this.afterPluginChanged(changed, eventType);
     }
-
+    
     /**
      * After plugin changed.
      *
@@ -173,7 +178,7 @@ public abstract class AbstractDataChangedListener implements DataChangedListener
      */
     protected void afterPluginChanged(final List<PluginData> changed, final DataEventTypeEnum eventType) {
     }
-
+    
     @Override
     public void onRuleChanged(final List<RuleData> changed, final DataEventTypeEnum eventType) {
         if (CollectionUtils.isEmpty(changed)) {
@@ -182,7 +187,7 @@ public abstract class AbstractDataChangedListener implements DataChangedListener
         this.updateRuleCache();
         this.afterRuleChanged(changed, eventType);
     }
-
+    
     /**
      * After rule changed.
      *
@@ -191,7 +196,7 @@ public abstract class AbstractDataChangedListener implements DataChangedListener
      */
     protected void afterRuleChanged(final List<RuleData> changed, final DataEventTypeEnum eventType) {
     }
-
+    
     @Override
     public void onSelectorChanged(final List<SelectorData> changed, final DataEventTypeEnum eventType) {
         if (CollectionUtils.isEmpty(changed)) {
@@ -199,6 +204,52 @@ public abstract class AbstractDataChangedListener implements DataChangedListener
         }
         this.updateSelectorCache();
         this.afterSelectorChanged(changed, eventType);
+    }
+
+    /**
+     * invoke this method when ProxySelector was changed.
+     *
+     * @param changed   the changed
+     * @param eventType the event type
+     */
+    public void onProxySelectorChanged(final List<ProxySelectorData> changed, final DataEventTypeEnum eventType) {
+        if (CollectionUtils.isEmpty(changed)) {
+            return;
+        }
+        this.updateProxySelectorDataCache();
+        this.afterProxySelectorChanged(changed, eventType);
+    }
+
+    /**
+     * After proxySelector changed.
+     *
+     * @param changed   the changed
+     * @param eventType the event type
+     */
+    protected void afterProxySelectorChanged(final List<ProxySelectorData> changed, final DataEventTypeEnum eventType) {
+    }
+
+    /**
+     * invoke this method when DiscoveryUpstream was changed.
+     *
+     * @param changed   the changed
+     * @param eventType the event type
+     */
+    public void onDiscoveryUpstreamChanged(final List<DiscoverySyncData> changed, final DataEventTypeEnum eventType) {
+        if (CollectionUtils.isEmpty(changed)) {
+            return;
+        }
+        this.updateDiscoveryUpstreamDataCache();
+        this.afterDiscoveryUpstreamDataChanged(changed, eventType);
+    }
+
+    /**
+     * After DiscoveryUpstreamData changed.
+     *
+     * @param changed   the changed
+     * @param eventType the event type
+     */
+    protected void afterDiscoveryUpstreamDataChanged(final List<DiscoverySyncData> changed, final DataEventTypeEnum eventType) {
     }
 
     /**
@@ -212,27 +263,37 @@ public abstract class AbstractDataChangedListener implements DataChangedListener
 
     @Override
     public final void afterPropertiesSet() {
-        updateAppAuthCache();
-        updatePluginCache();
-        updateRuleCache();
-        updateSelectorCache();
-        updateMetaDataCache();
-        afterInitialize();
+        this.refreshLocalCache();
+        this.afterInitialize();
     }
 
     protected abstract void afterInitialize();
 
     /**
      * if md5 is not the same as the original, then update lcoal cache.
+     *
      * @param group ConfigGroupEnum
-     * @param <T> the type of class
-     * @param data the new config data
+     * @param <T>   the type of class
+     * @param data  the new config data
      */
     protected <T> void updateCache(final ConfigGroupEnum group, final List<T> data) {
         String json = GsonUtils.getInstance().toJson(data);
-        ConfigDataCache newVal = new ConfigDataCache(group.name(), json, Md5Utils.md5(json), System.currentTimeMillis());
+        ConfigDataCache newVal = new ConfigDataCache(group.name(), json, DigestUtils.md5Hex(json), System.currentTimeMillis());
         ConfigDataCache oldVal = CACHE.put(newVal.getGroup(), newVal);
         LOG.info("update config cache[{}], old: {}, updated: {}", group, oldVal, newVal);
+    }
+    
+    /**
+     * refresh local cache.
+     */
+    protected void refreshLocalCache() {
+        this.updateAppAuthCache();
+        this.updatePluginCache();
+        this.updateRuleCache();
+        this.updateSelectorCache();
+        this.updateMetaDataCache();
+        this.updateProxySelectorDataCache();
+        this.updateDiscoveryUpstreamDataCache();
     }
 
     /**
@@ -255,19 +316,31 @@ public abstract class AbstractDataChangedListener implements DataChangedListener
     protected void updatePluginCache() {
         this.updateCache(ConfigGroupEnum.PLUGIN, pluginService.listAll());
     }
-
+    
     /**
      * Update app auth cache.
      */
     protected void updateAppAuthCache() {
         this.updateCache(ConfigGroupEnum.APP_AUTH, appAuthService.listAll());
     }
-
+    
     /**
      * Update meta data cache.
      */
     protected void updateMetaDataCache() {
         this.updateCache(ConfigGroupEnum.META_DATA, metaDataService.listAll());
+    }
+
+    protected void updateProxySelectorDataCache() {
+        this.updateCache(ConfigGroupEnum.PROXY_SELECTOR, proxySelectorService.listAll());
+    }
+
+    protected void updateDiscoveryUpstreamDataCache() {
+        this.updateCache(ConfigGroupEnum.DISCOVER_UPSTREAM, discoveryUpstreamService.listAll());
+    }
+
+    private <T> ConfigData<T> buildConfigData(final ConfigDataCache config, final Class<T> dataType) {
+        return new ConfigData<>(config.getMd5(), config.getLastModifyTime(), GsonUtils.getInstance().fromList(config.getJson(), dataType));
     }
 
 }

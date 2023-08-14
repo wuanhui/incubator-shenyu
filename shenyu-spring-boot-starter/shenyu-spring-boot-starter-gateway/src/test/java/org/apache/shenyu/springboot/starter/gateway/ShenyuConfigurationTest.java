@@ -19,13 +19,12 @@ package org.apache.shenyu.springboot.starter.gateway;
 
 import org.apache.shenyu.common.config.ShenyuConfig;
 import org.apache.shenyu.plugin.api.RemoteAddressResolver;
-import org.apache.shenyu.plugin.api.ShenyuPlugin;
 import org.apache.shenyu.plugin.api.result.ShenyuResult;
 import org.apache.shenyu.sync.data.api.PluginDataSubscriber;
 import org.apache.shenyu.web.handler.ShenyuWebHandler;
 import org.apache.shenyu.web.loader.ShenyuLoaderService;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -37,8 +36,8 @@ import org.springframework.http.codec.support.DefaultServerCodecConfigurer;
 import org.springframework.web.reactive.DispatcherHandler;
 import org.springframework.web.server.WebFilter;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
  * Test case for {@link ShenyuConfiguration}.
@@ -49,7 +48,7 @@ public class ShenyuConfigurationTest {
 
     private ApplicationContextRunner applicationContextRunner;
 
-    @Before
+    @BeforeEach
     public void before() {
         applicationContextRunner = new ApplicationContextRunner()
             .withConfiguration(AutoConfigurations.of(ShenyuConfiguration.class))
@@ -60,7 +59,8 @@ public class ShenyuConfigurationTest {
                 "debug=true",
                 "shenyu.cross.enabled=true",
                 "shenyu.file.enabled=true",
-                "shenyu.exclude.enabled=true"
+                "shenyu.exclude.enabled=true",
+                "shenyu.local.enabled=true"
             );
     }
 
@@ -81,16 +81,7 @@ public class ShenyuConfigurationTest {
             }
         );
     }
-
-    @Test
-    public void testRpcParamTransformPlugin() {
-        applicationContextRunner.run(context -> {
-                ShenyuPlugin plugin = context.getBean("paramTransformPlugin", ShenyuPlugin.class);
-                assertNotNull(plugin);
-            }
-        );
-    }
-
+    
     @Test
     public void testCommonPluginDataSubscriber() {
         applicationContextRunner.run(context -> {

@@ -36,6 +36,10 @@ public class PluginData {
 
     private Boolean enabled;
 
+    private Integer sort;
+
+    private String pluginJar;
+
     /**
      * no args constructor.
      */
@@ -43,7 +47,7 @@ public class PluginData {
     }
 
     /**
-     * all args constructor.
+     * all args constructor without sort.
      *
      * @param id      id
      * @param name    name
@@ -51,12 +55,34 @@ public class PluginData {
      * @param role    role
      * @param enabled enabled
      */
-    public PluginData(final String id, final String name, final String config, final String role, final Boolean enabled) {
+    public PluginData(final String id, final String name, final String config, final String role, final Boolean enabled, final String pluginJar) {
         this.id = id;
         this.name = name;
         this.config = config;
         this.role = role;
         this.enabled = enabled;
+        this.pluginJar = pluginJar;
+    }
+
+    /**
+     * all args constructor.
+     *
+     * @param id id
+     * @param name name
+     * @param config config
+     * @param role role
+     * @param enabled enabled
+     * @param sort sort
+     */
+    public PluginData(final String id, final String name, final String config, final String role, final Boolean enabled,
+                      final Integer sort, final String pluginJar) {
+        this.id = id;
+        this.name = name;
+        this.config = config;
+        this.role = role;
+        this.enabled = enabled;
+        this.sort = sort;
+        this.pluginJar = pluginJar;
     }
 
     /**
@@ -70,6 +96,8 @@ public class PluginData {
         this.config = builder.config;
         this.role = builder.role;
         this.enabled = builder.enabled;
+        this.sort = builder.sort;
+        this.pluginJar = builder.pluginJar;
     }
 
     /**
@@ -163,6 +191,41 @@ public class PluginData {
     }
 
     /**
+     * get pluginJar.
+     * @return pluginJar
+     */
+    public String getPluginJar() {
+        return pluginJar;
+    }
+
+    /**
+     * set pluginJar.
+     * @param pluginJar pluginJar
+     */
+    public void setPluginJar(final String pluginJar) {
+        this.pluginJar = pluginJar;
+    }
+
+    /**
+     * get sort.
+     *
+     * @return enabled
+     */
+    public Integer getSort() {
+        return sort;
+    }
+
+
+    /**
+     * set sort.
+     *
+     * @param sort sort value
+     */
+    public void setSort(final Integer sort) {
+        this.sort = sort;
+    }
+
+    /**
      * set enabled.
      *
      * @param enabled enabled
@@ -192,20 +255,13 @@ public class PluginData {
     @Override
     public String toString() {
         return "PluginData{"
-                + "id='"
-                + id
-                + '\''
-                + ", name='"
-                + name
-                + '\''
-                + ", config='"
-                + config
-                + '\''
-                + ", role='"
-                + role
-                + '\''
-                + ", enabled="
-                + enabled
+                + "id='" + id + '\''
+                + ", name='" + name + '\''
+                + ", config='" + config + '\''
+                + ", role='" + role + '\''
+                + ", enabled=" + enabled
+                + ", sort=" + sort
+                + ", pluginJar=" + pluginJar
                 + '}';
     }
 
@@ -238,6 +294,17 @@ public class PluginData {
          * enabled.
          */
         private Boolean enabled;
+
+        /**
+         * sort.
+         */
+        private Integer sort;
+
+        /**
+         * sort.
+         */
+        private String pluginJar;
+
 
         /**
          * no args constructor.
@@ -306,6 +373,29 @@ public class PluginData {
          */
         public Builder enabled(final Boolean enabled) {
             this.enabled = enabled;
+            return this;
+        }
+
+        /**
+         * build sort.
+         *
+         * @param sort sort
+         * @return this
+         */
+        public Builder sort(final Integer sort) {
+            this.sort = sort;
+            return this;
+        }
+
+
+        /**
+         * build pluginJar.
+         *
+         * @param  pluginJar pluginJar
+         * @return this
+         */
+        public Builder pluginJar(final String pluginJar) {
+            this.pluginJar = pluginJar;
             return this;
         }
     }

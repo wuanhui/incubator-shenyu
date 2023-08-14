@@ -22,15 +22,19 @@ import com.google.common.collect.Lists;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.shenyu.common.constant.DefaultPathConstants;
 import org.apache.shenyu.common.dto.AppAuthData;
+import org.apache.shenyu.common.dto.DiscoverySyncData;
 import org.apache.shenyu.common.dto.MetaData;
 import org.apache.shenyu.common.dto.PluginData;
+import org.apache.shenyu.common.dto.ProxySelectorData;
 import org.apache.shenyu.common.dto.RuleData;
 import org.apache.shenyu.common.dto.SelectorData;
 import org.apache.shenyu.common.enums.ConfigGroupEnum;
 import org.apache.shenyu.common.utils.GsonUtils;
 import org.apache.shenyu.sync.data.api.AuthDataSubscriber;
+import org.apache.shenyu.sync.data.api.DiscoveryUpstreamDataSubscriber;
 import org.apache.shenyu.sync.data.api.MetaDataSubscriber;
 import org.apache.shenyu.sync.data.api.PluginDataSubscriber;
+import org.apache.shenyu.sync.data.api.ProxySelectorDataSubscriber;
 import org.apache.shenyu.sync.data.api.SyncDataService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,12 +51,14 @@ import java.util.concurrent.ExecutionException;
 /**
  * Data synchronize of etcd.
  */
-public class EtcdSyncDataService implements SyncDataService, AutoCloseable {
+public class EtcdSyncDataService implements SyncDataService {
 
     /**
      * logger.
      */
     private static final Logger LOG = LoggerFactory.getLogger(EtcdSyncDataService.class);
+
+    private static final String PRE_FIX = "/shenyu";
 
     private final EtcdClient etcdClient;
 
@@ -62,22 +68,32 @@ public class EtcdSyncDataService implements SyncDataService, AutoCloseable {
 
     private final List<AuthDataSubscriber> authDataSubscribers;
 
+    private final List<ProxySelectorDataSubscriber> proxySelectorDataSubscribers;
+
+    private final List<DiscoveryUpstreamDataSubscriber> discoveryUpstreamDataSubscribers;
+
     /**
      * Instantiates a new Zookeeper cache manager.
      *
-     * @param etcdClient           the etcd client
-     * @param pluginDataSubscriber the plugin data subscriber
-     * @param metaDataSubscribers  the meta data subscribers
-     * @param authDataSubscribers  the auth data subscribers
+     * @param etcdClient                       the etcd client
+     * @param pluginDataSubscriber             the plugin data subscriber
+     * @param metaDataSubscribers              the meta data subscribers
+     * @param authDataSubscribers              the auth data subscribers
+     * @param proxySelectorDataSubscribers     the proxy selector data subscribers
+     * @param discoveryUpstreamDataSubscribers the discovery upstream data subscribers
      */
     public EtcdSyncDataService(final EtcdClient etcdClient,
                                final PluginDataSubscriber pluginDataSubscriber,
                                final List<MetaDataSubscriber> metaDataSubscribers,
-                               final List<AuthDataSubscriber> authDataSubscribers) {
+                               final List<AuthDataSubscriber> authDataSubscribers,
+                               final List<ProxySelectorDataSubscriber> proxySelectorDataSubscribers,
+                               final List<DiscoveryUpstreamDataSubscriber> discoveryUpstreamDataSubscribers) {
         this.etcdClient = etcdClient;
         this.pluginDataSubscriber = pluginDataSubscriber;
         this.metaDataSubscribers = metaDataSubscribers;
         this.authDataSubscribers = authDataSubscribers;
+        this.proxySelectorDataSubscribers = proxySelectorDataSubscribers;
+        this.discoveryUpstreamDataSubscribers = discoveryUpstreamDataSubscribers;
         watcherData();
         watchAppAuth();
         watchMetaData();
@@ -89,10 +105,11 @@ public class EtcdSyncDataService implements SyncDataService, AutoCloseable {
         for (String pluginName : pluginChildren) {
             watcherAll(pluginName);
         }
-
-        etcdClient.watchChildChange(pluginParent, (updateNode, updateValue) -> {
-            if (!updateNode.isEmpty()) {
-                watcherAll(updateNode);
+        etcdClient.watchChildChange(pluginParent, (pluginPath, updateValue) -> {
+            if (!pluginPath.isEmpty()) {
+                final String pluginName = pluginPath.substring(pluginPath.lastIndexOf("/") + 1);
+                cachePluginData(updateValue);
+                subscribePluginDataChanges(pluginPath, pluginName);
             }
         }, null);
     }
@@ -165,26 +182,38 @@ public class EtcdSyncDataService implements SyncDataService, AutoCloseable {
         switch (groupKey) {
             case SELECTOR:
                 etcdClient.watchChildChange(groupParentPath, (updatePath, updateValue) -> {
-                    cacheSelectorData(etcdClient.get(updatePath));
+                    cacheSelectorData(updateValue);
                     subscribeSelectorDataChanges(updatePath);
                 }, null);
                 break;
             case RULE:
                 etcdClient.watchChildChange(groupParentPath, (updatePath, updateValue) -> {
-                    cacheRuleData(etcdClient.get(updatePath));
+                    cacheRuleData(updateValue);
                     subscribeRuleDataChanges(updatePath);
                 }, null);
                 break;
             case APP_AUTH:
                 etcdClient.watchChildChange(groupParentPath, (updatePath, updateValue) -> {
-                    cacheAuthData(etcdClient.get(updatePath));
+                    cacheAuthData(updateValue);
                     subscribeAppAuthDataChanges(updatePath);
                 }, null);
                 break;
             case META_DATA:
                 etcdClient.watchChildChange(groupParentPath, (updatePath, updateValue) -> {
-                    cacheMetaData(etcdClient.get(updatePath));
+                    cacheMetaData(updateValue);
                     subscribeMetaDataChanges(updatePath);
+                }, null);
+                break;
+            case DISCOVER_UPSTREAM:
+                etcdClient.watchChildChange(groupParentPath, (updatePath, updateValue) -> {
+                    cacheDiscoveryUpstreamData(updateValue);
+                    subscribeDiscoveryUpstreamDataChanges(updatePath);
+                }, null);
+                break;
+            case PROXY_SELECTOR:
+                etcdClient.watchChildChange(groupParentPath, (updatePath, updateValue) -> {
+                    cacheProxySelectorData(updateValue);
+                    subscribeProxySelectorDataChanges(updatePath);
                 }, null);
                 break;
             default:
@@ -194,9 +223,7 @@ public class EtcdSyncDataService implements SyncDataService, AutoCloseable {
 
     private void subscribePluginDataChanges(final String pluginPath, final String pluginName) {
         etcdClient.watchDataChange(pluginPath, (updatePath, updateValue) -> {
-            final String dataPath = buildRealPath(pluginPath, updatePath);
-            final String dataStr = etcdClient.get(dataPath);
-            final PluginData data = GsonUtils.getInstance().fromJson(dataStr, PluginData.class);
+            final PluginData data = GsonUtils.getInstance().fromJson(updateValue, PluginData.class);
             Optional.ofNullable(data)
                     .ifPresent(d -> Optional.ofNullable(pluginDataSubscriber).ifPresent(e -> e.onSubscribe(d)));
         }, deleteNode -> deletePlugin(pluginName));
@@ -308,6 +335,50 @@ public class EtcdSyncDataService implements SyncDataService, AutoCloseable {
     private void unCacheMetaData(final MetaData metaData) {
         Optional.ofNullable(metaData)
                 .ifPresent(data -> metaDataSubscribers.forEach(e -> e.unSubscribe(metaData)));
+    }
+
+    private void cacheDiscoveryUpstreamData(final String dataString) {
+        final DiscoverySyncData discoveryUpstream = GsonUtils.getInstance().fromJson(dataString, DiscoverySyncData.class);
+        Optional.ofNullable(discoveryUpstream)
+                .ifPresent(data -> discoveryUpstreamDataSubscribers.forEach(e -> e.onSubscribe(data)));
+    }
+
+    private void unCacheDiscoveryUpstreamData(final String dataPath) {
+        DiscoverySyncData discoverySyncData = new DiscoverySyncData();
+        final String selectorId = dataPath.substring(dataPath.lastIndexOf("/") + 1);
+        final String str = dataPath.substring(DefaultPathConstants.DISCOVERY_UPSTREAM.length());
+        final String pluginName = str.substring(1, str.length() - selectorId.length() - 1);
+        discoverySyncData.setPluginName(pluginName);
+        discoverySyncData.setSelectorId(selectorId);
+        discoveryUpstreamDataSubscribers.forEach(e -> e.unSubscribe(discoverySyncData));
+        etcdClient.watchClose(dataPath);
+    }
+
+    private void subscribeDiscoveryUpstreamDataChanges(final String realPath) {
+        etcdClient.watchDataChange(realPath, (updatePath, updateValue) -> cacheDiscoveryUpstreamData(updateValue),
+                this::unCacheDiscoveryUpstreamData);
+    }
+
+    private void cacheProxySelectorData(final String dataString) {
+        final ProxySelectorData proxySelectorData = GsonUtils.getInstance().fromJson(dataString, ProxySelectorData.class);
+        Optional.ofNullable(proxySelectorData)
+                .ifPresent(data -> proxySelectorDataSubscribers.forEach(e -> e.onSubscribe(data)));
+    }
+
+    private void unCacheProxySelectorData(final String dataPath) {
+        ProxySelectorData proxySelectorData = new ProxySelectorData();
+        final String selectorId = dataPath.substring(dataPath.lastIndexOf("/") + 1);
+        final String str = dataPath.substring(DefaultPathConstants.PROXY_SELECTOR.length());
+        final String pluginName = str.substring(1, str.length() - selectorId.length() - 1);
+        proxySelectorData.setPluginName(pluginName);
+        proxySelectorData.setId(selectorId);
+        proxySelectorDataSubscribers.forEach(e -> e.unSubscribe(proxySelectorData));
+        etcdClient.watchClose(dataPath);
+    }
+
+    private void subscribeProxySelectorDataChanges(final String realPath) {
+        etcdClient.watchDataChange(realPath, (updatePath, updateValue) -> cacheProxySelectorData(updateValue),
+                this::unCacheProxySelectorData);
     }
 
     private String buildRealPath(final String parent, final String children) {

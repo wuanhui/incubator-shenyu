@@ -1,11 +1,10 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -19,25 +18,62 @@
 package org.apache.shenyu.admin.config;
 
 import org.apache.shenyu.admin.mybatis.pg.interceptor.PostgreSQLQueryInterceptor;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
  * Test cases for {@link MapperConfig}.
  */
-@RunWith(MockitoJUnitRunner.Silent.class)
+@ExtendWith(MockitoExtension.class)
 public class MapperConfigTest {
 
     @InjectMocks
-    private MapperConfig mapperConfig;
+    private MapperConfig.OracleSQLConfig oracleSQLConfig;
+
+    @InjectMocks
+    private MapperConfig.PostgreSQLConfig postgreSQLConfig;
+
+    @InjectMocks
+    private MapperConfig.OpenGaussSQLConfig openGaussSQLConfig;
     
     @Test
     public void testPostgreSQLQueryInterceptor() {
-        PostgreSQLQueryInterceptor postgreSQLQueryInterceptor = mapperConfig.postgreSqlQueryInterceptor();
+        PostgreSQLQueryInterceptor postgreSQLQueryInterceptor = postgreSQLConfig.postgreSqlQueryInterceptor();
         assertNotNull(postgreSQLQueryInterceptor);
     }
+
+    @Test
+    public void postgreSqlPrepareInterceptorTest() {
+        assertNotNull(postgreSQLConfig.postgreSqlPrepareInterceptor());
+    }
+
+    @Test
+    public void oracleSqlPrepareInterceptorTest() {
+        assertNotNull(oracleSQLConfig.oracleSqlPrepareInterceptor());
+    }
+
+    @Test
+    public void oracleSqlUpdateInterceptorTest() {
+        assertNotNull(oracleSQLConfig.oracleSqlUpdateInterceptor());
+    }
+
+    @Test
+    public void openGaussSqlPrepareInterceptorTest() {
+        assertNotNull(openGaussSQLConfig.openGaussSqlPrepareInterceptor());
+    }
+
+    @Test
+    public void openGaussSqlUpdateInterceptorTest() {
+        assertNotNull(openGaussSQLConfig.openGaussSqlUpdateInterceptor());
+    }
+
+    @Test
+    public void openGaussSqlQueryInterceptorTest() {
+        assertNotNull(openGaussSQLConfig.openGaussSqlQueryInterceptor());
+    }
+
 }

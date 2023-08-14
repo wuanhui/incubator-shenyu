@@ -22,31 +22,35 @@ import org.apache.shenyu.admin.service.MetaDataService;
 import org.apache.shenyu.admin.service.PluginService;
 import org.apache.shenyu.admin.service.RuleService;
 import org.apache.shenyu.admin.service.SelectorService;
+import org.apache.shenyu.admin.service.ProxySelectorService;
+import org.apache.shenyu.admin.service.DiscoveryUpstreamService;
 import org.apache.shenyu.common.dto.AppAuthData;
 import org.apache.shenyu.common.dto.ConfigData;
 import org.apache.shenyu.common.dto.MetaData;
 import org.apache.shenyu.common.dto.PluginData;
 import org.apache.shenyu.common.dto.RuleData;
 import org.apache.shenyu.common.dto.SelectorData;
+import org.apache.shenyu.common.dto.ProxySelectorData;
+import org.apache.shenyu.common.dto.DiscoverySyncData;
 import org.apache.shenyu.common.enums.ConfigGroupEnum;
 import org.apache.shenyu.common.enums.DataEventTypeEnum;
 import org.assertj.core.util.Lists;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.powermock.reflect.Whitebox;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
 import java.util.List;
 import java.util.concurrent.ConcurrentMap;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * The TestCase for AbstractDataChangedListener.
+ * The TestCase for {@link AbstractDataChangedListener}.
  */
 public final class AbstractDataChangedListenerTest {
 
@@ -62,20 +66,43 @@ public final class AbstractDataChangedListenerTest {
 
     private MetaDataService metaDataService;
 
-    @Before
-    public void setUp() {
+    private ProxySelectorService proxySelectorService;
+
+    private DiscoveryUpstreamService discoveryUpstreamService;
+
+    @BeforeEach
+    public void setUp() throws Exception {
         listener = new MockAbstractDataChangedListener();
         appAuthService = mock(AppAuthService.class);
         pluginService = mock(PluginService.class);
         ruleService = mock(RuleService.class);
         selectorService = mock(SelectorService.class);
         metaDataService = mock(MetaDataService.class);
+        proxySelectorService = mock(ProxySelectorService.class);
+        discoveryUpstreamService = mock(DiscoveryUpstreamService.class);
 
-        Whitebox.setInternalState(listener, "appAuthService", appAuthService);
-        Whitebox.setInternalState(listener, "pluginService", pluginService);
-        Whitebox.setInternalState(listener, "ruleService", ruleService);
-        Whitebox.setInternalState(listener, "selectorService", selectorService);
-        Whitebox.setInternalState(listener, "metaDataService", metaDataService);
+        Class clazz = MockAbstractDataChangedListener.class.getSuperclass();
+        Field appAuthServiceField = clazz.getDeclaredField("appAuthService");
+        appAuthServiceField.setAccessible(true);
+        appAuthServiceField.set(listener, appAuthService);
+        Field pluginServiceField = clazz.getDeclaredField("pluginService");
+        pluginServiceField.setAccessible(true);
+        pluginServiceField.set(listener, pluginService);
+        Field ruleServiceField = clazz.getDeclaredField("ruleService");
+        ruleServiceField.setAccessible(true);
+        ruleServiceField.set(listener, ruleService);
+        Field selectorServiceField = clazz.getDeclaredField("selectorService");
+        selectorServiceField.setAccessible(true);
+        selectorServiceField.set(listener, selectorService);
+        Field metaDataServiceField = clazz.getDeclaredField("metaDataService");
+        metaDataServiceField.setAccessible(true);
+        metaDataServiceField.set(listener, metaDataService);
+        Field proxySelectorServiceField = clazz.getDeclaredField("proxySelectorService");
+        proxySelectorServiceField.setAccessible(true);
+        proxySelectorServiceField.set(listener, proxySelectorService);
+        Field discoveryUpstreamServiceField = clazz.getDeclaredField("discoveryUpstreamService");
+        discoveryUpstreamServiceField.setAccessible(true);
+        discoveryUpstreamServiceField.set(listener, discoveryUpstreamService);
 
         List<AppAuthData> appAuthDatas = Lists.newArrayList(mock(AppAuthData.class));
         when(appAuthService.listAll()).thenReturn(appAuthDatas);
@@ -87,9 +114,13 @@ public final class AbstractDataChangedListenerTest {
         when(selectorService.listAll()).thenReturn(selectorDatas);
         List<MetaData> metaDatas = Lists.newArrayList(mock(MetaData.class));
         when(metaDataService.listAll()).thenReturn(metaDatas);
+        List<ProxySelectorData> proxySelectorDatas = Lists.newArrayList(mock(ProxySelectorData.class));
+        when(proxySelectorService.listAll()).thenReturn(proxySelectorDatas);
+        List<DiscoverySyncData> discoverySyncDatas = Lists.newArrayList(mock(DiscoverySyncData.class));
+        when(discoveryUpstreamService.listAll()).thenReturn(discoverySyncDatas);
     }
 
-    @After
+    @AfterEach
     public void cleanUp() {
         listener.getCache().clear();
     }

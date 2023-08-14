@@ -18,23 +18,30 @@
 package org.apache.shenyu.admin.controller;
 
 import org.apache.shenyu.admin.exception.ExceptionHandlers;
+import org.apache.shenyu.admin.mapper.PluginMapper;
+import org.apache.shenyu.admin.mapper.SelectorMapper;
+import org.apache.shenyu.admin.model.custom.UserInfo;
 import org.apache.shenyu.admin.model.dto.SelectorDTO;
 import org.apache.shenyu.admin.model.page.CommonPager;
 import org.apache.shenyu.admin.model.page.PageParameter;
-import org.apache.shenyu.admin.model.query.SelectorQuery;
-import org.apache.shenyu.admin.service.SelectorService;
-import org.apache.shenyu.admin.utils.ShenyuResultMessage;
 import org.apache.shenyu.admin.model.vo.SelectorVO;
+import org.apache.shenyu.admin.service.SelectorService;
+import org.apache.shenyu.admin.spring.SpringBeanUtils;
+import org.apache.shenyu.admin.utils.SessionUtil;
+import org.apache.shenyu.admin.utils.ShenyuResultMessage;
 import org.apache.shenyu.common.enums.MatchModeEnum;
 import org.apache.shenyu.common.enums.SelectorTypeEnum;
 import org.apache.shenyu.common.utils.DateUtils;
 import org.apache.shenyu.common.utils.GsonUtils;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
@@ -44,14 +51,18 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 
 import static org.hamcrest.core.Is.is;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * Test cases for {@link SelectorController}.
  */
-@RunWith(MockitoJUnitRunner.class)
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 public final class SelectorControllerTest {
 
     private MockMvc mockMvc;
@@ -61,28 +72,35 @@ public final class SelectorControllerTest {
 
     @Mock
     private SelectorService selectorService;
-
-    private final PageParameter pageParameter = new PageParameter();
-
-    private final SelectorQuery selectorQuery = new SelectorQuery("2", "selector-1", pageParameter);
-
+    
+    @Mock
+    private SelectorMapper selectorMapper;
+    
+    @Mock
+    private PluginMapper pluginMapper;
+    
     private final SelectorVO selectorVO = new SelectorVO("1", "2", "selector-1", MatchModeEnum.AND.getCode(),
             MatchModeEnum.AND.getName(), SelectorTypeEnum.FULL_FLOW.getCode(), SelectorTypeEnum.FULL_FLOW.getName(),
-            1, true, true, true, "handle", Collections.emptyList(),
+            1, true, true, true, false, "handle", Collections.emptyList(),
             DateUtils.localDateTimeToString(LocalDateTime.now()), DateUtils.localDateTimeToString(LocalDateTime.now()));
 
     private final CommonPager<SelectorVO> commonPager = new CommonPager<>(new PageParameter(), Collections.singletonList(selectorVO));
 
-    @Before
+    @BeforeEach
     public void setUp() {
         this.mockMvc = MockMvcBuilders.standaloneSetup(selectorController)
-                .setControllerAdvice(new ExceptionHandlers())
+                .setControllerAdvice(new ExceptionHandlers(null))
                 .build();
+        // mock login user
+        final UserInfo mockLoginUser = new UserInfo();
+        mockLoginUser.setUserId("1");
+        mockLoginUser.setUserName("admin");
+        SessionUtil.setLocalVisitor(mockLoginUser);
     }
 
     @Test
     public void querySelectors() throws Exception {
-        given(this.selectorService.listByPage(selectorQuery)).willReturn(commonPager);
+        given(this.selectorService.searchByPageToPager(any())).willReturn(commonPager);
         String urlTemplate = "/selector?pluginId={pluginId}&name={name}&currentPage={currentPage}&pageSize={pageSize}";
         this.mockMvc.perform(MockMvcRequestBuilders.get(urlTemplate, "2", "selector-1", 1, 12))
                 .andExpect(status().isOk())
@@ -98,10 +116,17 @@ public final class SelectorControllerTest {
                 .name("test123")
                 .continued(true)
                 .type(1)
+                .loged(true)
                 .enabled(true)
+                .matchRestful(false)
                 .pluginId("2")
                 .sort(1)
                 .build();
+        SpringBeanUtils.getInstance().setApplicationContext(mock(ConfigurableApplicationContext.class));
+        when(SpringBeanUtils.getInstance().getBean(SelectorMapper.class)).thenReturn(selectorMapper);
+        when(selectorMapper.existed(selectorDTO.getId())).thenReturn(true);
+        when(SpringBeanUtils.getInstance().getBean(PluginMapper.class)).thenReturn(pluginMapper);
+        when(pluginMapper.existed(selectorDTO.getPluginId())).thenReturn(true);
         given(this.selectorService.createOrUpdate(selectorDTO)).willReturn(1);
         this.mockMvc.perform(MockMvcRequestBuilders.post("/selector")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -118,10 +143,17 @@ public final class SelectorControllerTest {
                 .name("test123")
                 .continued(true)
                 .type(1)
+                .loged(true)
                 .enabled(true)
+                .matchRestful(false)
                 .pluginId("2")
                 .sort(1)
                 .build();
+        SpringBeanUtils.getInstance().setApplicationContext(mock(ConfigurableApplicationContext.class));
+        when(SpringBeanUtils.getInstance().getBean(SelectorMapper.class)).thenReturn(selectorMapper);
+        when(selectorMapper.existed(selectorDTO.getId())).thenReturn(true);
+        when(SpringBeanUtils.getInstance().getBean(PluginMapper.class)).thenReturn(pluginMapper);
+        when(pluginMapper.existed(selectorDTO.getPluginId())).thenReturn(true);
         given(this.selectorService.createOrUpdate(selectorDTO)).willReturn(1);
         this.mockMvc.perform(MockMvcRequestBuilders.put("/selector/{id}", "123")
                 .contentType(MediaType.APPLICATION_JSON)

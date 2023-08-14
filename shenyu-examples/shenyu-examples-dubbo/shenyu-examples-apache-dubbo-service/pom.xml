@@ -22,23 +22,23 @@
     <parent>
         <groupId>org.apache.shenyu</groupId>
         <artifactId>shenyu-examples-dubbo</artifactId>
-        <version>2.1.0</version>
+        <version>2.6.1-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
     <artifactId>shenyu-examples-apache-dubbo-service</artifactId>
 
     <properties>
         <curator.version>4.0.1</curator.version>
-        <nacos-client.version>1.1.4</nacos-client.version>
-        <apache.dubbo.version>2.7.5</apache.dubbo.version>
-        <zookeeper.version>3.4.6</zookeeper.version>
+        <nacos-client.version>2.0.4</nacos-client.version>
+        <apache.dubbo.version>2.7.15</apache.dubbo.version>
+        <zookeeper.version>3.5.6</zookeeper.version>
     </properties>
 
     <dependencies>
         <dependency>
             <groupId>org.apache.shenyu</groupId>
             <artifactId>shenyu-spring-boot-starter-client-apache-dubbo</artifactId>
-            <version>${shenyu.version}</version>
+            <version>${project.version}</version>
         </dependency>
 
         <!--shenyu consul register center -->
@@ -62,8 +62,8 @@
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-aop</artifactId>
+            <groupId>org.apache.shenyu</groupId>
+            <artifactId>shenyu-examples-common</artifactId>
         </dependency>
 
         <dependency>
@@ -147,31 +147,39 @@
 
     <profiles>
         <profile>
-            <id>docker</id>
+            <id>example</id>
+            <properties>
+                <docker.buildArg.APP_NAME>shenyu-examples-apache-dubbo-service</docker.buildArg.APP_NAME>
+                <docker.image.tag.repo>shenyu-examples-apache-dubbo-service</docker.image.tag.repo>
+                <docker.image.tag.tagName>latest</docker.image.tag.tagName>
+            </properties>
             <activation>
                 <activeByDefault>false</activeByDefault>
             </activation>
             <build>
                 <plugins>
                     <plugin>
-                        <groupId>com.spotify</groupId>
-                        <artifactId>dockerfile-maven-plugin</artifactId>
-                        <version>${dockerfile-maven-plugin.version}</version>
+                        <groupId>io.fabric8</groupId>
+                        <artifactId>docker-maven-plugin</artifactId>
+                        <version>${docker-maven-plugin.version}</version>
+                        <configuration>
+                            <images>
+                                <image>
+                                    <name>shenyu-examples-apache-dubbo-service</name>
+                                    <build>
+                                        <contextDir>${project.basedir}</contextDir>
+                                    </build>
+                                </image>
+                            </images>
+                        </configuration>
                         <executions>
                             <execution>
-                                <id>shenyu-examples-apache-dubbo-service</id>
+                                <id>start</id>
                                 <goals>
                                     <goal>build</goal>
                                 </goals>
                             </execution>
                         </executions>
-                        <configuration>
-                            <repository>shenyu-examples-apache-dubbo-service</repository>
-                            <tag>latest</tag>
-                            <buildArgs>
-                                <APP_NAME>shenyu-examples-apache-dubbo-service</APP_NAME>
-                            </buildArgs>
-                        </configuration>
                     </plugin>
                 </plugins>
             </build>
